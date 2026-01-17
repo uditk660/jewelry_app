@@ -1,8 +1,14 @@
 <nav class="navbar">
-  <div class="brand"><a href="<%= root_path %>">JewelryApp</a></div>
-  <button class="nav-toggle" aria-expanded="false">☰ Menu</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="brand"><a href="<%= root_path %>">JewelryApp</a></div>
+      <% if respond_to?(:user_signed_in?) && user_signed_in? %>
+        <button class="nav-toggle" aria-expanded="false">☰ Menu</button>
+      <% end %>
+    </div>
 
-  <ul class="nav-menu" role="menubar">
+    <% if respond_to?(:user_signed_in?) && user_signed_in? %>
+      <ul id="nav-icons" class="nav-menu" role="menubar" style="flex:1;margin:0 20px;">
     <!-- Master Data -->
     <li class="nav-item" role="none">
       <a role="menuitem" href="<%= jewelry_items_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Master Data ▾</a>
@@ -94,16 +100,36 @@
         <li><a href="<%= new_security_path %>">New User / Role</a></li>
       </ul>
     </li>
-  </ul>
-  <div style="margin-left:12px">
+      </ul>
+    <% end %>
+
+    <div id="auth-area" style="margin-left:12px">
     <%# Use Devise helpers when available, otherwise fall back to common Devise paths */ %>
     <% sign_in_path = respond_to?(:new_user_session_path) ? new_user_session_path : '/users/sign_in' %>
     <% sign_out_path = respond_to?(:destroy_user_session_path) ? destroy_user_session_path : '/users/sign_out' %>
     <% if respond_to?(:user_signed_in?) && user_signed_in? %>
       Signed in as <strong><%= current_user.email %></strong>
-      <%= link_to 'Sign out', sign_out_path, method: :delete, style: 'margin-left:12px; color:#f3f4f6' %>
+      <%= link_to 'Sign out', sign_out_path, method: :delete, id: 'sign-out-link', style: 'margin-left:12px; color:#f3f4f6' %>
     <% else %>
-      <%= link_to 'Sign in', sign_in_path, style: 'margin-left:12px; color:#f3f4f6' %>
+      <%= link_to 'Sign in', sign_in_path, id: 'sign-in-link', style: 'margin-left:12px; color:#f3f4f6' %>
     <% end %>
   </div>
+  <script>
+    (function(){
+      try{
+        var signOut = document.getElementById('sign-out-link');
+        var navIcons = document.getElementById('nav-icons');
+        var authArea = document.getElementById('auth-area');
+        var signInPath = '<%= j sign_in_path %>';
+        if(signOut){
+          signOut.addEventListener('click', function(){
+            try{
+              if(navIcons) navIcons.style.display = 'none';
+              if(authArea) authArea.innerHTML = '<a id="sign-in-link" href="'+signInPath+'" style="margin-left:12px; color:#f3f4f6">Sign in</a>';
+            }catch(e){}
+          });
+        }
+      }catch(e){}
+    })();
+  </script>
 </nav>

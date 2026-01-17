@@ -27,6 +27,17 @@
 
           <div class="form-row" style="margin-top:10px">
             <div style="flex:1">
+              <%= f.label :metal_id, 'Metal' %>
+              <%= f.collection_select :metal_id, (@metals || []), :id, :name, include_blank: '— Select metal —', class: 'form-control' %>
+            </div>
+            <div style="width:220px; margin-left:12px">
+              <%= f.label :purity_id, 'Purity' %>
+              <%= f.collection_select :purity_id, (@purities || []), :id, :name, include_blank: '— Select purity —', class: 'form-control' %>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top:10px">
+            <div style="flex:1">
               <%= f.label :quantity, 'Quantity (pieces)' %>
               <%= f.number_field :quantity, step: 1, min: 0, class: 'form-control' %>
             </div>

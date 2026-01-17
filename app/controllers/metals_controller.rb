@@ -9,6 +9,17 @@ class MetalsController < ApplicationController
     render template: 'metals/new'
   end
 
+  def show
+    @metal = Metal.find(params[:id])
+    render template: 'metals/show'
+  end
+
+  def destroy
+    @metal = Metal.find(params[:id])
+    @metal.destroy
+    redirect_to metals_path, notice: 'Metal deleted.'
+  end
+
   def create
     @metal = Metal.new(metal_params)
     if @metal.save

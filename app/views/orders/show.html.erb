@@ -32,22 +32,35 @@
           <th>HUID</th>
           <th>HSN</th>
           <th class="center">Qty</th>
+          <th class="right">Gross (g)</th>
+          <th class="right">Net (g)</th>
           <th class="right">Rate (₹)</th>
           <th class="right">Making (₹)</th>
           <th class="right">Line Total (₹)</th>
         </tr>
       </thead>
       <tbody>
+        <% subtotal_calc = 0.0 %>
         <% @order.line_items.each do |li| %>
+          <% per_gram = (li.jewelry_item.respond_to?(:effective_price_per_gram) ? li.jewelry_item.effective_price_per_gram.to_f : nil) %>
+          <% per_line = if per_gram && li.net_weight.to_f > 0 && li.quantity.to_i > 0
+                          per_gram * li.net_weight.to_f * li.quantity.to_i
+                        else
+                          li.rate.to_f
+                        end %>
+          <% line_total = per_line + li.making_charge.to_f %>
+          <% subtotal_calc += line_total %>
           <tr>
             <td class="item-name"><%= li.jewelry_item.name %></td>
             <td><%= li.huid.presence || '-' %></td>
             <td><%= li.hsn.presence || '-' %></td>
             <td class="center"><%= li.quantity %></td>
-            <td class="right"><%= '%.2f' % li.rate.to_f %></td>
+            <td class="right"><%= '%.2f' % li.gross_weight.to_f %></td>
+            <td class="right"><%= '%.2f' % li.net_weight.to_f %></td>
+            <td class="right"><%= '%.2f' % per_line %></td>
             <td class="right"><%= '%.2f' % li.making_charge.to_f %></td>
             <td class="right total-cell">
-              <%= '%.2f' % li.total %>
+              <%= '%.2f' % line_total %>
             </td>
           </tr>
         <% end %>
@@ -64,27 +77,45 @@
 
       <div class="summary-row">
         <span>Subtotal</span>
-        <span>₹<%= '%.2f' % @order.subtotal %></span>
+        <span>₹<%= '%.2f' % subtotal_calc %></span>
       </div>
 
-  <!-- Discount and Making Charges intentionally hidden in summary per UI request -->
+      <div class="summary-row muted">
+        <span>Discount</span>
+        <span>₹<%= '%.2f' % @order.discount.to_f %></span>
+      </div>
+
+      <div class="summary-row muted">
+        <span>Making Charges</span>
+        <span>₹<%= '%.2f' % @order.charges.to_f %></span>
+      </div>
 
       <hr>
 
       <div class="summary-row emphasis">
         <span>Taxable Amount</span>
         <span id="taxable-display">
-          ₹<%= '%.2f' % (@order.subtotal - @order.discount.to_f + @order.charges.to_f) %>
+          ₹<%= '%.2f' % (subtotal_calc - @order.discount.to_f + @order.charges.to_f) %>
         </span>
+      </div>
+
+      <div class="summary-row">
+        <span>CGST</span>
+        <span id="cgst-amount">₹0.00</span>
+      </div>
+
+      <div class="summary-row">
+        <span>IGST</span>
+        <span id="igst-amount">₹0.00</span>
       </div>
 
       <div class="summary-total">
         <span>Total Payable</span>
+        <% taxable_calc = subtotal_calc - @order.discount.to_f + @order.charges.to_f %>
+        <% cgst_amt = taxable_calc * (@order.cgst_rate.to_f / 100.0) %>
+        <% igst_amt = taxable_calc * (@order.igst_rate.to_f / 100.0) %>
         <strong id="total-display">
-          ₹<%= '%.2f' % @order.total_with_taxes(
-            cgst_rate: @order.cgst_rate,
-            igst_rate: @order.igst_rate
-          ) %>
+          ₹<%= '%.2f' % (taxable_calc + cgst_amt + igst_amt) %>
         </strong>
       </div>
     </aside>
@@ -106,19 +137,19 @@
           <div class="form-grid">
             <div>
               <label>CGST %</label>
-              <input id="cgst_rate_input" name="cgst_rate" type="number" step="0.01"
-                     value="<%= @order.cgst_rate.to_f %>">
+                <input id="cgst_rate_show" name="cgst_rate" type="number" step="0.01"
+                       value="<%= @order.cgst_rate.to_f %>">
             </div>
 
             <div>
               <label>IGST %</label>
-              <input id="igst_rate_input" name="igst_rate" type="number" step="0.01"
-                     value="<%= @order.igst_rate.to_f %>">
+                <input id="igst_rate_show" name="igst_rate" type="number" step="0.01"
+                       value="<%= @order.igst_rate.to_f %>">
             </div>
           </div>
 
           <div class="form-actions">
-            <button id="record-payment-submit" class="btn btn-primary" disabled>
+            <button class="btn btn-primary">
               Record Payment & Print Invoice
             </button>
           </div>
@@ -129,46 +160,27 @@
   </div>
 </div>
 
-<!-- JS: run after DOM ready -->
+<!-- JS UNCHANGED -->
 <script>
-document.addEventListener('DOMContentLoaded', function(){
   function money(v){ return '\u20B9' + v.toFixed(2); }
-  const subtotal = <%= @order.subtotal.to_f %>;
+  const subtotal = <%= subtotal_calc %>;
   const discount = <%= @order.discount.to_f %>;
   const charges = <%= @order.charges.to_f %>;
 
-  const cgstInput = document.getElementById('cgst_rate_input');
-  const igstInput = document.getElementById('igst_rate_input');
-  const submitBtn = document.getElementById('record-payment-submit');
-
-  function parseRate(el){
-    if(!el) return 0;
-    const v = parseFloat(el.value);
-    return isNaN(v) ? 0 : v;
-  }
-
   function update(){
     const taxable = subtotal - discount + charges;
-    const cgstRate = parseRate(cgstInput);
-    const igstRate = parseRate(igstInput);
+    const cgstRate = parseFloat(document.getElementById('cgst_rate_show').value || 0);
+    const igstRate = parseFloat(document.getElementById('igst_rate_show').value || 0);
     const cgst = taxable * (cgstRate/100);
     const igst = taxable * (igstRate/100);
-    const cgstAmountEl = document.getElementById('cgst-amount'); if(cgstAmountEl) cgstAmountEl.textContent = money(cgst);
-    const igstAmountEl = document.getElementById('igst-amount'); if(igstAmountEl) igstAmountEl.textContent = money(igst);
-    const totalEl = document.getElementById('total-display'); if(totalEl) totalEl.textContent = money(taxable + cgst + igst);
-
-    // enable submit only if both tax inputs contain numeric values (non-empty)
-    if(submitBtn){
-      const ok = (cgstInput && cgstInput.value !== '' && !isNaN(parseFloat(cgstInput.value))) &&
-                 (igstInput && igstInput.value !== '' && !isNaN(parseFloat(igstInput.value)));
-      submitBtn.disabled = !ok;
-    }
+    document.getElementById('cgst-amount').textContent = money(cgst);
+    document.getElementById('igst-amount').textContent = money(igst);
+    document.getElementById('total-display').textContent = money(taxable + cgst + igst);
   }
-
+  // wire inputs so changes reflect on the summary card
+  const cgstInput = document.getElementById('cgst_rate_show');
+  const igstInput = document.getElementById('igst_rate_show');
   if(cgstInput) cgstInput.addEventListener('input', update);
   if(igstInput) igstInput.addEventListener('input', update);
-
-  // run once on load
   update();
-});
 </script>

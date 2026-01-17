@@ -34,4 +34,34 @@ class JewelryItem < ActiveRecord::Base
   def price=(dollars)
     self.price_cents = (dollars.to_f * 100).round
   end
+
+  # Returns purity price per gram (decimal) if a purity with updated_price exists
+  def purity_price_per_gram
+    return nil unless purity && purity.updated_price.present?
+    purity.updated_price.to_f
+  end
+
+  # Compute item price from purity price per gram * weight_grams where available,
+  # otherwise fall back to stored item price
+  def computed_price
+    if effective_price_per_gram && weight_grams.present?
+      (effective_price_per_gram * weight_grams.to_f).round(2)
+    else
+      price.to_f
+    end
+  end
+
+  # Returns the effective per-gram price to use for computing item price.
+  # Preference order: purity.updated_price -> latest metal_stock.price_cents_per_gram -> nil
+  def effective_price_per_gram
+    return purity_price_per_gram if purity_price_per_gram.present?
+    return nil unless metal
+    # pick latest metal_stock record for this metal if present
+    ms = metal.respond_to?(:metal_stocks) ? metal.metal_stocks.order(created_at: :desc).first : nil
+    if ms && ms.price_cents_per_gram.to_i > 0
+      ms.price_cents_per_gram.to_f / 100.0
+    else
+      nil
+    end
+  end
 end

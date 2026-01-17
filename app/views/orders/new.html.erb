@@ -143,7 +143,8 @@
 <script>
   // items prepared server-side (controller provides @items = JewelryItem.available_for_sale)
   // include sku so we can show HUID in each row
-  const items = <%= raw((@items || []).to_json(only: [:id, :name, :quantity, :sku], methods: [:price])) %> || [];
+  // include weight_grams and effective per-gram price so client can compute totals correctly
+  const items = <%= raw((@items || []).to_json(only: [:id, :name, :quantity, :sku, :weight_grams], methods: [:price, :effective_price_per_gram])) %> || [];
   let tbody = null; // set after DOMContentLoaded to avoid early lookup
   // debug trace
   try{ console.log('orders/new script loaded, items count=', (items && items.length) || 0); }catch(e){}
@@ -210,8 +211,8 @@
       <td><input type="text" name="line_items[][hsn]" value=""></td>
       <td><input type="number" name="line_items[][quantity]" value="1" min="1" class="qty"></td>
       <td><input type="number" name="line_items[][gross_weight]" value="" step="0.01"></td>
-      <td><input type="number" name="line_items[][net_weight]" value="" step="0.01"></td>
-      <td><input type="number" name="line_items[][rate]" value="${(itemObj.price||0).toFixed(2)}" readonly class="rate-field"><span class="price-cell" style="display:none"></span></td>
+  <td><input type="number" name="line_items[][net_weight]" value="${itemObj.weight_grams || ''}" step="0.01" class="net-weight"></td>
+  <td><input type="number" name="line_items[][rate]" value="${((itemObj.effective_price_per_gram || itemObj.price || 0) * (itemObj.weight_grams || 0) * 1).toFixed(2)}" readonly class="rate-field"><span class="price-cell" style="display:none"></span></td>
       <td><input type="number" name="line_items[][making_charge]" value="0" step="0.01"></td>
       <td class="line-total">${money(itemObj.price||0)}</td>
       <td class="col-actions"><button type="button" class="btn remove">✕</button></td>
@@ -235,7 +236,17 @@
         const it = items.find(x => String(x.id) == String(idVal));
         const huidInput = row.querySelector('input[name="line_items[][huid]"]');
         const rateInput = row.querySelector('input[name="line_items[][rate]"]');
-        if(it){ if(huidInput) huidInput.value = it.sku || ''; if(rateInput) rateInput.value = (it.price).toFixed(2); if(priceCell) priceCell.textContent = money(it.price); if(lineTotal) lineTotal.textContent = money(it.price * parseInt(qty.value || 1)); }
+        const netInput = row.querySelector('input[name="line_items[][net_weight]"]') || row.querySelector('.net-weight');
+        if(it){
+          const perGram = parseFloat(it.effective_price_per_gram || it.price || 0);
+          const net = parseFloat((netInput && netInput.value) || (it.weight_grams || 0)) || 0;
+          const q = parseInt(qty.value || 1) || 0;
+          if(huidInput) huidInput.value = it.sku || '';
+          if(netInput && (!netInput.value || netInput.value === '')) netInput.value = it.weight_grams || '';
+          if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
+          if(priceCell) priceCell.textContent = money(perGram) + ' /g';
+          if(lineTotal) lineTotal.textContent = money(perGram * net * q);
+        }
       };
       // initial populate
       if(select.value) populateFromId(select.value);
@@ -252,7 +263,23 @@
     qty && qty.addEventListener('input', function(){
       const idVal = hiddenId ? hiddenId.value : (select ? select.value : null);
       const it = items.find(x => String(x.id) == String(idVal));
-      if(lineTotal && it) lineTotal.textContent = money(it.price * parseInt(qty.value || 0));
+      const netInput = row.querySelector('input[name="line_items[][net_weight]"]') || row.querySelector('.net-weight');
+      const net = parseFloat((netInput && netInput.value) || 0) || 0;
+      const q = parseInt(qty.value || 0) || 0;
+      const perGram = it ? parseFloat(it.effective_price_per_gram || it.price || 0) : 0;
+      if(lineTotal && (perGram || q || net)) lineTotal.textContent = money(perGram * net * q);
+      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
+      recalc();
+    });
+    const netEl = row.querySelector('input[name="line_items[][net_weight]"]');
+    netEl && netEl.addEventListener('input', function(){
+      const idVal = hiddenId ? hiddenId.value : (select ? select.value : null);
+      const it = items.find(x => String(x.id) == String(idVal));
+      const net = parseFloat(netEl.value || 0) || 0;
+      const q = parseInt((row.querySelector('.qty')||{value:1}).value || 1) || 0;
+      const perGram = it ? parseFloat(it.effective_price_per_gram || it.price || 0) : 0;
+      if(lineTotal) lineTotal.textContent = money(perGram * net * q);
+      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
       recalc();
     });
     const rem = row.querySelector('.remove'); if(rem) rem.addEventListener('click', function(){
@@ -293,14 +320,29 @@
 
   function recalc(){
     let subtotal = 0;
-    tbody.querySelectorAll('tr').forEach(r => {
+    const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+    rows.forEach(r => {
       const idInput = r.querySelector('input.item-id-hidden');
       const select = r.querySelector('.item-select');
       const idVal = idInput ? idInput.value : (select ? select.value : null);
-      const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0);
+      const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0) || 0;
+      const netInput = r.querySelector('input[name^="line_items"][name$="[net_weight]"]') || r.querySelector('.net-weight');
+      const net = parseFloat((netInput && netInput.value) || 0) || 0;
+      const making = parseFloat((r.querySelector('input[name^="line_items"][name$="[making_charge]"]')||{value:0}).value || 0) || 0;
       const it = items.find(x => String(x.id) == String(idVal));
-      const making = parseFloat((r.querySelector('input[name^="line_items"][name$="[making_charge]"]')||{value:0}).value || 0);
-      if(it) subtotal += (it.price || 0) * qty + (isNaN(making)?0:making);
+      let lineAmount = 0;
+      if(it){
+        const perGram = parseFloat(it.effective_price_per_gram || it.price || 0) || 0;
+        lineAmount = perGram * net * qty + (isNaN(making) ? 0 : making);
+        const rateInput = r.querySelector('input[name="line_items[][rate]"]');
+        if(rateInput) rateInput.value = (perGram * net * qty).toFixed(2);
+      } else {
+        lineAmount = (isNaN(making) ? 0 : making);
+        const rateInput = r.querySelector('input[name="line_items[][rate]"]'); if(rateInput) rateInput.value = (0).toFixed(2);
+      }
+      const lineTotalEl = r.querySelector('.line-total');
+      if(lineTotalEl) lineTotalEl.textContent = money(lineAmount);
+      subtotal += lineAmount;
     });
     const discount = parseFloat((document.getElementById('discount')||{value:0}).value || 0);
     const charges = parseFloat((document.getElementById('charges')||{value:0}).value || 0);
