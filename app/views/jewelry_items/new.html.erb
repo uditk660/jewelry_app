@@ -13,6 +13,17 @@
     <div class="edit-grid">
       <div class="edit-form">
         <%= form_for @item, url: jewelry_items_path do |f| %>
+          <div class="form-row" style="margin-bottom:10px">
+            <div style="flex:1">
+              <%= f.label :metal_id, 'Metal' %>
+              <%= f.collection_select :metal_id, (@metals || []), :id, :name, include_blank: '— Select metal —', class: 'form-control' %>
+            </div>
+            <div style="width:220px; margin-left:12px">
+              <%= f.label :purity_id, 'Purity' %>
+              <%= f.collection_select :purity_id, (@purities || []), :id, :name, include_blank: '— Select purity —', class: 'form-control' %>
+            </div>
+          </div>
+
           <div class="form-row">
             <div style="flex:1">
               <%= f.label :name %>
@@ -27,19 +38,8 @@
 
           <div class="form-row" style="margin-top:10px">
             <div style="flex:1">
-              <%= f.label :metal_id, 'Metal' %>
-              <%= f.collection_select :metal_id, (@metals || []), :id, :name, include_blank: '— Select metal —', class: 'form-control' %>
-            </div>
-            <div style="width:220px; margin-left:12px">
-              <%= f.label :purity_id, 'Purity' %>
-              <%= f.collection_select :purity_id, (@purities || []), :id, :name, include_blank: '— Select purity —', class: 'form-control' %>
-            </div>
-          </div>
-
-          <div class="form-row" style="margin-top:10px">
-            <div style="flex:1">
               <%= f.label :price_cents, 'Price (₹) — enter rupees (decimal)' %>
-              <%= text_field_tag 'price_rupees', (@item.price.present? ? ('%.2f' % @item.price) : ''), class: 'form-control', id: 'price_rupees', placeholder: 'e.g. 1234.50' %>
+              <%= text_field_tag 'price_rupees', (@item.price.present? ? ('%.2f' % @item.price) : ''), class: 'form-control', id: 'price_rupees', placeholder: 'e.g. 1234.50', readonly: true %>
               <%= f.hidden_field :price_cents, id: 'price_cents_hidden' %>
             </div>
             <div style="width:220px;margin-left:12px">
@@ -93,6 +93,45 @@
 <script>
   // live preview sync for new/edit forms
   (function(){
+    // Disable form fields until metal + purity are selected
+    function setFormEnabled(enabled){
+      const selectors = ['input.form-control:not([readonly])','textarea.form-control','input[type=number]'];
+      const els = document.querySelectorAll(selectors.join(','));
+      els.forEach(el=>{ el.disabled = !enabled; });
+      // keep metal and purity enabled
+      const metalEl = document.querySelector('select[name="jewelry_item[metal_id]"]');
+      const purityEl = document.querySelector('select[name="jewelry_item[purity_id]"]');
+      if(metalEl) metalEl.disabled = false;
+      if(purityEl) purityEl.disabled = false;
+    }
+
+    function bothSelected(){
+      const m = document.querySelector('select[name="jewelry_item[metal_id]"]');
+      const p = document.querySelector('select[name="jewelry_item[purity_id]"]');
+      return m && p && m.value && p.value;
+    }
+
+    // guard submission: prevent creating without both selections
+    document.addEventListener('DOMContentLoaded', function(){
+      const form = document.querySelector('form');
+      if(!form) return;
+      const metalEl = document.querySelector('select[name="jewelry_item[metal_id]"]');
+      const purityEl = document.querySelector('select[name="jewelry_item[purity_id]"]');
+      if(!metalEl || !purityEl){ setFormEnabled(true); return; }
+
+      // initialize
+      setFormEnabled(bothSelected());
+
+      metalEl.addEventListener('change', function(){ setFormEnabled(bothSelected()); });
+      purityEl.addEventListener('change', function(){ setFormEnabled(bothSelected()); });
+
+      form.addEventListener('submit', function(e){
+        if(!bothSelected()){
+          e.preventDefault();
+          alert('Please select both Metal and Purity before creating an item.');
+        }
+      });
+    });
     function slugify(s){
       return s.toString().toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0,10);
     }
@@ -156,17 +195,66 @@
 
     // sync rupees -> paise hidden field
     if(priceRupeesEl){
-      priceRupeesEl.addEventListener('input', function(){
+      // price_rupees is readonly — keep hidden paise in sync when JS updates value
+      const syncPriceHidden = function(){
         const v = parseFloat(priceRupeesEl.value);
         if(isNaN(v)) { priceHiddenEl.value = ''; } else { priceHiddenEl.value = Math.round(v * 100); }
-        updatePreview();
-      });
+      };
+      // expose a price update function below that will call syncPriceHidden and updatePreview
     }
 
     // initial fill
   // initial sync: ensure hidden paise is set if rupees present
-  if(priceRupeesEl && priceRupeesEl.value && priceHiddenEl) priceHiddenEl.value = Math.round(parseFloat(priceRupeesEl.value) * 100);
+    if(priceRupeesEl && priceRupeesEl.value && priceHiddenEl) priceHiddenEl.value = Math.round(parseFloat(priceRupeesEl.value) * 100);
   maybeGenerateSku();
   updatePreview();
   })();
 </script>
+
+  <script>
+    // Compute price from purity price per gram × weight × quantity
+      (function(){
+        // Build purity map from server-side data including effective per-gram price (purity.updated_price or latest metal_stock)
+        const PURITIES = <%= (@purities || []).map do |p|
+          per_gram = if p.updated_price.present?
+            p.updated_price.to_f
+          else
+            ms = p.metal&.metal_stocks&.order(created_at: :desc)&.first
+            (ms && ms.price_cents_per_gram.present?) ? (ms.price_cents_per_gram.to_f / 100.0) : 0.0
+          end
+          { id: p.id, per_gram_price: per_gram, name: p.name, metal_id: p.metal_id }
+        end.to_json.html_safe %>;
+        function findPurity(id){ return PURITIES.find(x=>String(x.id) === String(id)); }
+
+        document.addEventListener('DOMContentLoaded', function(){
+          const metalEl = document.querySelector('select[name="jewelry_item[metal_id]"]');
+          const purityEl = document.querySelector('select[name="jewelry_item[purity_id]"]');
+          const weightEl = document.querySelector('input[name="jewelry_item[weight_grams]"]');
+          const qtyEl = document.querySelector('input[name="jewelry_item[quantity]"]');
+          const priceRupeesEl = document.getElementById('price_rupees');
+          const priceHiddenEl = document.getElementById('price_cents_hidden');
+
+          function computeAndSetPrice(){
+            if(!priceRupeesEl || !priceHiddenEl) return;
+            const purity = purityEl ? findPurity(purityEl.value) : null;
+            const perGram = purity && (purity.per_gram_price || purity.per_gram_price === 0) ? parseFloat(purity.per_gram_price) : 0;
+            const weight = parseFloat((weightEl && weightEl.value) || 0);
+            const qty = parseFloat((qtyEl && qtyEl.value) || 1);
+            const total = perGram * (isNaN(weight) ? 0 : weight) * (isNaN(qty) ? 1 : qty);
+            priceRupeesEl.value = isNaN(total) ? '' : total.toFixed(2);
+            if(priceRupeesEl.value) priceHiddenEl.value = Math.round(parseFloat(priceRupeesEl.value) * 100);
+            const previewPrice = document.getElementById('preview-price');
+            if(previewPrice) previewPrice.textContent = priceRupeesEl.value ? '\u20B9' + parseFloat(priceRupeesEl.value).toFixed(2) : '—';
+          }
+
+          // Attach listeners: purity, metal (in case purity list changes), weight and quantity
+          [purityEl, weightEl, qtyEl].forEach(el=>{ if(!el) return; el.addEventListener('input', computeAndSetPrice); el.addEventListener('change', computeAndSetPrice); });
+          if(metalEl){ metalEl.addEventListener('change', function(){ setTimeout(computeAndSetPrice, 50); }); }
+
+          // Recompute when form becomes enabled (after selecting both metal and purity)
+          const origSetFormEnabled = window._setFormEnabled_original;
+          // If we had stored a reference, call it; otherwise just ensure initial compute runs
+          computeAndSetPrice();
+        });
+      })();
+  </script>

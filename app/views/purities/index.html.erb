@@ -1,7 +1,77 @@
-<h1>Purities</h1>
-<p><a href="<%= new_purity_path %>">New Purity</a></p>
-<ul>
-  <% @purities.each do |p| %>
-    <li><%= p.name %> - <%= p.purity_percent %>% (<%= p.metal.name if p.metal %>)</li>
-  <% end %>
-</ul>
+<style>
+  /* Purities index scoped styles */
+  .purities-wrap{max-width:1100px;margin:20px auto}
+  .purities-card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.06)}
+  .purities-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .purities-title{display:flex;gap:12px;align-items:center}
+  .purities-title h2{margin:0;font-size:18px;color:#0f172a}
+  .muted{color:#64748b;font-size:13px}
+  .purities-actions{display:flex;gap:8px}
+  .btn-primary{background:#0ea5a4;color:#fff;padding:8px 12px;border-radius:8px;text-decoration:none;border:none}
+  .btn-ghost{background:transparent;border:1px solid #e6eef6;padding:8px 12px;border-radius:8px;color:#0f172a;text-decoration:none}
+  .purities-table{width:100%;border-collapse:collapse;margin-top:8px}
+  .purities-table th,.purities-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:left}
+  .purities-table th{color:#475569;font-size:13px;font-weight:600}
+  .badge{display:inline-block;padding:6px 8px;border-radius:999px;background:#f1f5f9;color:#0f172a;font-size:12px}
+  .empty-state{padding:36px;text-align:center;color:#475569}
+  @media (max-width:780px){
+    .purities-title h2{font-size:16px}
+    .purities-table td:nth-child(5),.purities-table th:nth-child(5){display:none}
+  }
+  .svg-hero{width:56px;height:56px}
+ </style>
+ 
+ <div class="purities-wrap">
+  <div class="purities-card">
+    <div class="purities-top">
+      <div class="purities-title">
+        <!-- small decorative SVG -->
+        <svg class="svg-hero" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="8" width="44" height="32" rx="6" fill="#FFEDD5"/>
+          <circle cx="24" cy="22" r="9" fill="#FFD166"/>
+          <path d="M24 13 L27 23 L36 24 L29 30 L31 39 L24 34 L17 39 L19 30 L12 24 L21 23 Z" fill-opacity="0.06"/>
+        </svg>
+        <div>
+          <h2>Purities</h2>
+          <div class="muted">Manage purity levels and their per-gram prices</div>
+        </div>
+      </div>
+
+      <div class="purities-actions">
+        <%= link_to 'New Purity', new_purity_path, class: 'btn-primary' %>
+        <%= link_to 'Refresh', purities_path, class: 'btn-ghost' %>
+      </div>
+    </div>
+
+    <% if @purities.present? %>
+      <table class="purities-table">
+        <thead>
+          <tr>
+            <th>Metal</th>
+            <th>Name</th>
+            <th>Purity (%)</th>
+            <th>Price / g</th>
+            <th>Remarks</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @purities.each do |p| %>
+            <tr>
+              <td><%= p.metal&.name || '-' %></td>
+              <td><%= p.name %></td>
+              <td><span class="badge"><%= number_with_precision(p.purity_percent || 0, precision: 2) %></span></td>
+              <td><%= number_to_currency(p.updated_price || 0, unit: '₹', precision: 2, delimiter: ',') %></td>
+              <td><%= truncate(p.remarks.to_s, length: 60) %></td>
+              <td><%= link_to 'View', purity_path(p), class: 'btn-ghost' %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <div class="empty-state">
+        No purities found. <%= link_to 'Create the first purity', new_purity_path, class: 'btn-primary' %>
+      </div>
+    <% end %>
+  </div>
+ </div>

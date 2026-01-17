@@ -68,6 +68,15 @@ class Order < ActiveRecord::Base
     total_cents_with_taxes(cgst_rate: cgst_rate, igst_rate: igst_rate).to_f / 100.0
   end
 
+  # Computed totals derived from LineItem#line_amount (per-gram * net_weight * qty + making)
+  def computed_total_cents
+    line_items.sum { |li| li.line_amount_cents }
+  end
+
+  def computed_total
+    computed_total_cents.to_f / 100.0
+  end
+
   private
 
   def set_invoice_and_date

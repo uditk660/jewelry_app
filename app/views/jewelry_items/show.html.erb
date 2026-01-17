@@ -16,14 +16,26 @@
 				<p class="product-desc"><%= simple_format(@item.description.to_s) %></p>
 
 								<div class="product-pricing">
-										<div class="price-large"> <%= "\u20B9#{'%.2f' % @item.computed_price}" %> </div>
-															<% if @item.effective_price_per_gram.present? %>
-																<% if @item.purity && @item.purity.updated_price.present? %>
-																	<div class="small muted">(source: <%= @item.purity.name %> @ <%= "\u20B9#{'%.2f' % @item.effective_price_per_gram}" %> /g)</div>
-																<% else %>
-																	<div class="small muted">(source: metal stock @ <%= "\u20B9#{'%.2f' % @item.effective_price_per_gram}" %> /g)</div>
-																<% end %>
-															<% end %>
+									<% per_gram = @item.effective_price_per_gram %>
+									<% weight = (@item.weight_grams || 0).to_f %>
+									<% qty = (@item.quantity.present? && @item.quantity.to_i > 0) ? @item.quantity.to_i : 1 %>
+									<% unit_price = per_gram ? (per_gram * weight) : @item.price.to_f %>
+									<% total_price = unit_price * qty %>
+
+									<div class="price-large">
+										<%= number_to_currency(unit_price, unit: '₹', precision: 2, delimiter: ',') %>
+										<% if qty > 1 %>
+											<div class="small muted">(each) — total: <strong><%= number_to_currency(total_price, unit: '₹', precision: 2, delimiter: ',') %></strong></div>
+										<% end %>
+									</div>
+
+									<% if per_gram.present? %>
+										<% if @item.purity && @item.purity.updated_price.present? %>
+											<div class="small muted">(calc: <%= number_to_currency(per_gram, unit: '₹', precision: 2) %> /g × <%= weight %> g × <%= qty %> = <%= number_to_currency(total_price, unit: '₹', precision: 2) %>) source: <%= @item.purity.name %></div>
+										<% else %>
+											<div class="small muted">(calc: <%= number_to_currency(per_gram, unit: '₹', precision: 2) %> /g × <%= weight %> g × <%= qty %> = <%= number_to_currency(total_price, unit: '₹', precision: 2) %>) source: metal stock</div>
+										<% end %>
+									<% end %>
 					<div class="availability small muted">
 						<% if @item.quantity.present? && @item.quantity > 0 %>
 							In stock: <strong><%= @item.quantity %> pcs</strong>

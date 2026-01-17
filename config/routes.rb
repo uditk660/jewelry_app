@@ -30,7 +30,7 @@ Rails.application.routes.draw do
   get 'security', to: 'security#index', as: :security_index
   get 'security/new', to: 'security#new', as: :new_security
   resources :metals, only: [:index, :new, :create, :show, :destroy]
-  resources :purities, only: [:index, :new, :create, :show]
+  resources :purities, only: [:index, :new, :create, :show, :edit, :update]
     resources :customers, only: [:index, :new, :create, :show]
   resources :jewellery_categories, only: [:index, :new, :create]
   resources :stores, only: [:index, :new, :create]

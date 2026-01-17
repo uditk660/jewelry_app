@@ -71,7 +71,7 @@
                     <strong><%= o.invoice_number %></strong>
                     <div class="muted"><%= o.customer.try(:name) || 'Guest' %> • <%= o.sale_date %></div>
                   </div>
-                  <div style="text-align:right">₹<%= '%.2f' % (o.total || 0) %></div>
+                  <div style="text-align:right">₹<%= '%.2f' % (o.computed_total || o.total || 0) %></div>
                 </div>
               </li>
             <% end %>

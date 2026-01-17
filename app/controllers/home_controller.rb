@@ -14,8 +14,8 @@ class HomeController < ApplicationController
 
   @recent_orders = Order.where(status: 'paid').order(sale_date: :desc).limit(6)
 
-    # low stock jewelry items (quantity <= 5)
-    @low_stock_items = JewelryItem.where('quantity <= ?', 5).order(:quantity).limit(8)
+  # low stock jewelry items (quantity <= 5)
+  @low_stock_items = JewelryItem.where('quantity <= ?', 5).order(:quantity).limit(8)
 
     # top items this week
   @top_items_week = LineItem.joins(:order, :jewelry_item)
