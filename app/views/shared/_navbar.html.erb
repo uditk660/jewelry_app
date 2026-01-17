@@ -17,27 +17,8 @@
         <li><a href="<%= new_jewelry_item_path %>">New Item</a></li>
         <li class="submenu-divider" aria-hidden="true">—</li>
         <li><a href="<%= metals_path %>">Existing Metals</a></li>
-        <li><a href="<%= new_metal_path %>">New Metal</a></li>
         <li><a href="<%= purities_path %>">Existing Purities</a></li>
-        <li><a href="<%= new_purity_path %>">New Purity</a></li>
   <li><a href="<%= customers_path %>">Existing Customers</a></li>
-  <li><a href="<%= new_customer_path %>">New Customer</a></li>
-        <li><a href="<%= jewellery_categories_path %>">Existing Categories</a></li>
-        <li><a href="<%= new_jewellery_category_path %>">New Category</a></li>
-      </ul>
-    </li>
-
-    <!-- Inventory -->
-    <li class="nav-item" role="none">
-      <a role="menuitem" href="<%= inventory_items_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Inventory ▾</a>
-      <ul class="submenu" role="menu">
-        <li><a href="<%= inventory_items_path %>">Existing Inventory</a></li>
-        <li><a href="<%= new_inventory_item_path %>">New Inventory Record</a></li>
-        <li class="submenu-divider" aria-hidden="true">—</li>
-        <li><a href="<%= stores_path %>">Stores</a></li>
-        <li><a href="<%= new_store_path %>">New Store</a></li>
-        <li><a href="<%= metal_stocks_path %>">Metal Stocks</a></li>
-        <li><a href="<%= new_metal_stock_path %>">New Metal Stock</a></li>
       </ul>
     </li>
 
@@ -56,7 +37,6 @@
       <ul class="submenu" role="menu">
         <li><a href="<%= orders_path %>">Existing Orders</a></li>
         <li><a href="<%= new_order_path %>">New Order</a></li>
-        <li><a href="<%= pos_path %>">POS Terminal</a></li>
   <li class="submenu-divider" aria-hidden="true">—</li>
   <li><a href="<%= returns_path %>">Returns & Exchanges</a></li>
   <li><a href="<%= new_return_path %>">New Return / Exchange</a></li>
@@ -65,39 +45,31 @@
 
     <!-- Ledger & Accounting -->
     <li class="nav-item" role="none">
-      <a role="menuitem" href="<%= ledgers_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Ledger ▾</a>
-      <ul class="submenu" role="menu">
-        <li><a href="<%= ledgers_path %>">Existing Journals</a></li>
-        <li><a href="<%= new_ledger_path %>">New Journal Entry</a></li>
-      </ul>
+      <a role="menuitem" href="#" tabindex="0" aria-haspopup="true" aria-expanded="false">Ledger</a>
     </li>
 
     <!-- Profit & Loss -->
     <li class="nav-item" role="none">
-      <a role="menuitem" href="<%= profit_losses_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Profit / Loss ▾</a>
-      <ul class="submenu" role="menu">
-        <li><a href="<%= profit_losses_path %>">Existing Reports</a></li>
-        <li><a href="<%= new_profit_loss_path %>">New Report</a></li>
-      </ul>
+      <a role="menuitem" href="#" tabindex="0" aria-haspopup="true" aria-expanded="false">Profit / Loss ▾</a>
     </li>
 
     <!-- Reports & Analytics -->
     <li class="nav-item" role="none">
-      <a role="menuitem" href="<%= reports_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Reports ▾</a>
+      <a role="menuitem" href="#" tabindex="0" aria-haspopup="true" aria-expanded="false">Reports ▾</a>
       <ul class="submenu" role="menu">
-        <li><a href="<%= reports_path %>">All Reports</a></li>
-        <li><a href="<%= new_report_path %>">New Report</a></li>
+        <li><a href="#">All Reports</a></li>
+        <li><a href="#">New Report</a></li>
   <li class="submenu-divider" aria-hidden="true">—</li>
-  <li><a href="<%= sales_log_reports_path %>">Sales Log</a></li>
+  <li><a href="#">Sales Log</a></li>
       </ul>
     </li>
 
     <!-- Security & Audit -->
     <li class="nav-item right" role="none">
-      <a role="menuitem" href="<%= security_index_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Security ▾</a>
+      <a role="menuitem" href="#" tabindex="0" aria-haspopup="true" aria-expanded="false">Security ▾</a>
       <ul class="submenu" role="menu">
-        <li><a href="<%= security_index_path %>">Users & Audit</a></li>
-        <li><a href="<%= new_security_path %>">New User / Role</a></li>
+        <li><a href="#">Users & Audit</a></li>
+        <li><a href="#">New User / Role</a></li>
       </ul>
     </li>
       </ul>

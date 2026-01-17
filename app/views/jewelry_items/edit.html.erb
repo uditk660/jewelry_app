@@ -56,8 +56,8 @@
 
           <div class="form-row" style="margin-top:10px">
             <div style="flex:1">
-              <%= f.label :price_cents, 'Price (₹) — enter rupees (decimal)' %>
-              <%= text_field_tag 'price_rupees', (@item.price.present? ? ('%.2f' % @item.price) : ''), class: 'form-control', id: 'price_rupees', placeholder: 'e.g. 1234.50' %>
+              <%= f.label :price_cents, 'Price (₹) — computed from purity × weight × qty' %>
+              <%= text_field_tag 'price_rupees', (@item.price.present? ? ('%.2f' % @item.price) : ''), class: 'form-control', id: 'price_rupees', placeholder: 'e.g. 1234.50', readonly: true %>
               <%= f.hidden_field :price_cents, id: 'price_cents_hidden' %>
             </div>
           </div>
@@ -160,16 +160,52 @@
           [nameEl, descEl, priceRupeesEl, weightEl, skuEl].forEach(el=>{ if(!el) return; el.addEventListener('input', function(){ updatePreview(); }); });
           if(nameEl) nameEl.addEventListener('input', function(){ maybeGenerateSku(); });
 
-          if(priceRupeesEl){
-            priceRupeesEl.addEventListener('input', function(){
-              const v = parseFloat(priceRupeesEl.value);
-              if(isNaN(v)) { priceHiddenEl.value = ''; } else { priceHiddenEl.value = Math.round(v * 100); }
-              updatePreview();
-            });
-          }
+          // price_rupees is readonly on edit page; no manual input handler to keep value stable
 
           if(priceRupeesEl && priceRupeesEl.value && priceHiddenEl) priceHiddenEl.value = Math.round(parseFloat(priceRupeesEl.value) * 100);
           maybeGenerateSku();
           updatePreview();
+        })();
+      </script>
+
+      <script>
+        // Compute and display readonly price on edit page using purity per-gram price (or metal_stock fallback).
+        (function(){
+          const PURITIES = <%= (@purities || []).map do |p|
+            per_gram = if p.updated_price.present?
+              p.updated_price.to_f
+            else
+              ms = p.metal&.metal_stocks&.order(created_at: :desc)&.first
+              (ms && ms.price_cents_per_gram.present?) ? (ms.price_cents_per_gram.to_f / 100.0) : 0.0
+            end
+            { id: p.id, per_gram_price: per_gram, name: p.name, metal_id: p.metal_id }
+          end.to_json.html_safe %>;
+
+          function findPurity(id){ return PURITIES.find(x=>String(x.id) === String(id)); }
+
+          document.addEventListener('DOMContentLoaded', function(){
+            const purityEl = document.querySelector('select[name="jewelry_item[purity_id]"]');
+            const weightEl = document.querySelector('input[name="jewelry_item[weight_grams]"]');
+            const qtyEl = document.querySelector('input[name="jewelry_item[quantity]"]');
+            const priceRupeesEl = document.getElementById('price_rupees');
+            const priceHiddenEl = document.getElementById('price_cents_hidden');
+            const previewPrice = document.getElementById('preview-price');
+
+            function computeAndSetPrice(){
+              if(!priceRupeesEl || !priceHiddenEl) return;
+              const purity = purityEl ? findPurity(purityEl.value) : null;
+              const perGram = purity && (purity.per_gram_price || purity.per_gram_price === 0) ? parseFloat(purity.per_gram_price) : 0;
+              const weight = parseFloat((weightEl && weightEl.value) || 0);
+              const qty = parseFloat((qtyEl && qtyEl.value) || 1);
+              const total = perGram * (isNaN(weight) ? 0 : weight) * (isNaN(qty) ? 1 : qty);
+              priceRupeesEl.value = isNaN(total) ? '' : total.toFixed(2);
+              if(priceRupeesEl.value) priceHiddenEl.value = Math.round(parseFloat(priceRupeesEl.value) * 100);
+              if(previewPrice) previewPrice.textContent = priceRupeesEl.value ? '\u20B9' + parseFloat(priceRupeesEl.value).toFixed(2) : '—';
+            }
+
+            [purityEl, weightEl, qtyEl].forEach(el=>{ if(!el) return; el.addEventListener('input', computeAndSetPrice); el.addEventListener('change', computeAndSetPrice); });
+            // init
+            computeAndSetPrice();
+          });
         })();
       </script>

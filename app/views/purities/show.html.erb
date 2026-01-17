@@ -1,0 +1,60 @@
+<style>
+  .purity-show-wrap{max-width:980px;margin:20px auto}
+  .purity-show-card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.06);display:grid;grid-template-columns:120px 1fr;gap:18px;align-items:start}
+  .purity-hero{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px}
+  .purity-hero svg{width:84px;height:84px}
+  .purity-details h3{margin:0 0 6px 0;font-size:18px;color:#0f172a}
+  .meta{color:#64748b;font-size:13px;margin-bottom:10px}
+  .detail-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .detail-col{min-width:160px}
+  .label{font-size:12px;color:#475569}
+  .value{font-weight:600;color:#0f172a}
+  .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  .btn{padding:8px 12px;border-radius:8px;border:1px solid #e6eef6;background:#f8fafc;color:#0f172a;text-decoration:none}
+</style>
+
+<div class="purity-show-wrap">
+  <div class="purity-show-card">
+    <div class="purity-hero">
+      <!-- small decorative SVG -->
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="2" y="8" width="44" height="32" rx="6" fill="#FFF7ED"/>
+        <circle cx="24" cy="22" r="10" fill="#F59E0B"/>
+      </svg>
+      <div style="margin-top:8px;font-weight:700;color:#0f172a">Purity</div>
+    </div>
+
+    <div class="purity-details">
+      <h3><%= @purity.name %></h3>
+      <div class="meta">Metal: <strong><%= @purity.metal&.name || '-' %></strong></div>
+
+      <div class="detail-row">
+        <div class="detail-col">
+          <div class="label">Purity (%)</div>
+          <div class="value"><%= number_with_precision(@purity.purity_percent || 0, precision: 2) %></div>
+        </div>
+        <div class="detail-col">
+          <div class="label">Price per gram</div>
+          <div class="value"><%= number_to_currency(@purity.updated_price || 0, unit: '₹', precision: 2, delimiter: ',') %></div>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <div class="label">Remarks</div>
+        <div style="margin-top:6px;color:#334155"><%= simple_format(@purity.remarks.to_s) %></div>
+      </div>
+
+      <div style="margin-top:14px;color:#64748b;font-size:13px">
+        Created: <%= @purity.created_at&.strftime('%Y-%m-%d %H:%M') || '-' %>
+        &nbsp;•&nbsp;
+        Updated: <%= @purity.updated_at&.strftime('%Y-%m-%d %H:%M') || '-' %>
+      </div>
+
+      <div class="actions">
+        <%= link_to 'Back', purities_path, class: 'btn' %>
+        <%# Edit route may require adding :edit/:update to routes.rb if not present %>
+        <%= link_to 'Edit', edit_purity_path(@purity), class: 'btn' %>
+      </div>
+    </div>
+  </div>
+</div>

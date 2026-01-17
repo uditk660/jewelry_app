@@ -1,5 +1,7 @@
 class JewelryItem < ActiveRecord::Base
   validates :name, presence: true
+  validates :metal_id, presence: true
+  validates :purity_id, presence: true
   validates :price_cents, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :sku, presence: true, uniqueness: true
   validates :quantity, numericality: { only_integer: true, greater_than_or_equal_to: 0 }

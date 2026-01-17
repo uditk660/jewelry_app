@@ -6,7 +6,7 @@ ruby '2.7.8'
 gem 'rails', '~> 5.0.7'
 
 # DB
-gem 'sqlite3', '~> 1.3.13'
+gem 'mysql2', '>= 0.5.3'
 
 # Asset pipeline
 gem 'sass-rails', '~> 5.0'
