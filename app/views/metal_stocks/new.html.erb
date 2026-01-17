@@ -1,0 +1,23 @@
+<h1>New Metal Stock</h1>
+
+<%= form_for @metal_stock do |f| %>
+  <div>
+    <%= f.label :store_id, 'Store' %><br>
+    <%= f.collection_select :store_id, @stores, :id, :name %>
+  </div>
+  <div>
+    <%= f.label :metal_id, 'Metal' %><br>
+    <%= f.collection_select :metal_id, @metals, :id, :name %>
+  </div>
+  <div>
+    <%= f.label :available_grams %><br>
+    <%= f.number_field :available_grams %>
+  </div>
+  <div>
+    <%= f.label :price_cents_per_gram, 'Price per gram (₹ - in paise/cents)' %><br>
+    <%= f.number_field :price_cents_per_gram %>
+  </div>
+  <div>
+    <%= f.submit 'Create' %>
+  </div>
+<% end %>

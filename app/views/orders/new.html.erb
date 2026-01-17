@@ -1,0 +1,599 @@
+<div class="container">
+  <!-- ================= HEADER ================= -->
+  <div class="page-header">
+    <div>
+      <h1>Sales Order</h1>
+      <p class="lead">
+        Create a new sales order by adding items, assigning a customer,
+        and reviewing totals before submission.
+      </p>
+    </div>
+    <div class="action-group">
+      <%= link_to "Back to Orders", orders_path, class: "btn" %>
+    </div>
+  </div>
+
+  <div class="card">
+
+    <%= form_tag orders_path, method: :post, id: 'order-form' do %>
+
+      <!-- ================= ORDER ITEMS ================= -->
+      <div class="section-title">Order Items</div>
+
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="min-width:220px">Item</th>
+            <th style="min-width:110px">HUID</th>
+            <th style="min-width:90px">HSN</th>
+            <th style="min-width:70px">Qty</th>
+            <th style="min-width:90px">Gross (g)</th>
+            <th style="min-width:90px">Net (g)</th>
+            <th style="min-width:90px">Rate</th>
+            <th style="min-width:100px">Making</th>
+            <th style="min-width:120px;text-align:right">Line Total</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody id="order-items">
+        </tbody>
+      </table>
+
+      <button type="button" id="add-order-row" class="btn">+ Add Item</button>
+
+      <!-- ================= CUSTOMER + SUMMARY ================= -->
+      <div class="customer-and-summary">
+
+        <!-- CUSTOMER -->
+        <div>
+          <div class="section-title">Customer</div>
+
+          <label>Existing Customer</label>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <%= select_tag :existing_customer_id,
+              options_from_collection_for_select(@customers, :id, :full_name),
+              include_blank: "— Select customer —", id: 'existing_customer_id' %>
+
+            <label style="font-weight:normal; margin:0;">
+              <input type="checkbox" id="toggle-new-customer" style="margin-right:6px; vertical-align:middle;" /> Add new customer
+            </label>
+          </div>
+
+          <div class="new-customer-card" id="new-customer-form" style="display:none">
+            <%= fields_for :customer do |c| %>
+
+              <div class="form-row">
+                <div style="flex:1">
+                  <label>First Name</label>
+                  <%= c.text_field :first_name %>
+                </div>
+                <div style="flex:1">
+                  <label>Last Name</label>
+                  <%= c.text_field :last_name %>
+                </div>
+              </div>
+
+              <label style="margin-top:8px">Address</label>
+              <%= c.text_area :address, rows: 2 %>
+
+              <div class="form-row" style="margin-top:8px">
+                <div style="flex:1">
+                  <label>Aadhaar / PAN</label>
+                  <%= c.text_field :aadhaar_or_pan %>
+                </div>
+                <div style="flex:1">
+                  <label>GST Number</label>
+                  <%= c.text_field :gst_number %>
+                </div>
+              </div>
+
+              <div class="form-row" style="margin-top:8px">
+                <div style="flex:1">
+                  <label>Email</label>
+                  <%= c.email_field :email %>
+                </div>
+                <div style="flex:1">
+                  <label>Phone</label>
+                  <%= c.text_field :phone %>
+                </div>
+              </div>
+
+            <% end %>
+          </div>
+        </div>
+
+        <!-- SUMMARY -->
+        <div class="order-summary">
+          <div class="summary-row"><div>Subtotal</div><div id="subtotal">₹0.00</div></div>
+          <div class="summary-row muted"><div>Discount</div><div id="discount-display">₹0.00</div></div>
+          <div class="summary-row muted"><div>Charges</div><div id="charges-display">₹0.00</div></div>
+
+          <div class="summary-divider"></div>
+
+          <div class="summary-row"><div>Taxable</div><div id="taxable">₹0.00</div></div>
+          <div class="summary-row"><div>CGST</div><div id="cgst">₹0.00</div></div>
+          <div class="summary-row"><div>IGST</div><div id="igst">₹0.00</div></div>
+
+          <div class="summary-divider"></div>
+
+          <div class="summary-row total">
+            <div><strong>Total</strong></div>
+            <div><strong id="grand-total">₹0.00</strong></div>
+          </div>
+
+          <!-- hidden inputs so the existing JS can read values and the server receives them -->
+          <%= number_field_tag :discount, nil, step: 0.01, id: 'discount', style: 'display:none' %>
+          <%= number_field_tag :charges, nil, step: 0.01, id: 'charges', style: 'display:none' %>
+          <%= number_field_tag :cgst_rate, nil, step: 0.01, id: 'cgst_rate', style: 'display:none' %>
+          <%= number_field_tag :igst_rate, nil, step: 0.01, id: 'igst_rate', style: 'display:none' %>
+        </div>
+      </div>
+
+      <!-- ================= ACTIONS ================= -->
+      <div class="footer-actions">
+        <%= submit_tag "Create Order", class: "btn btn-primary", id: 'submit-order-bottom', disabled: true %>
+      </div>
+
+    <% end %>
+  </div>
+</div>
+
+
+<script>
+  // items prepared server-side (controller provides @items = JewelryItem.available_for_sale)
+  // include sku so we can show HUID in each row
+  const items = <%= raw((@items || []).to_json(only: [:id, :name, :quantity, :sku], methods: [:price])) %> || [];
+  let tbody = null; // set after DOMContentLoaded to avoid early lookup
+  // debug trace
+  try{ console.log('orders/new script loaded, items count=', (items && items.length) || 0); }catch(e){}
+
+  function money(v){ return '\u20B9' + v.toFixed(2); }
+
+  // --- new helpers: prevent duplicate selections and keep selects in sync ---
+  function getSelectedIds(){
+  const ids = new Set();
+  // defensive: if tbody not ready, return empty set
+  if(!tbody) return ids;
+  // look for hidden id inputs first (new text-box mode), fall back to selects
+  tbody.querySelectorAll('input.item-id-hidden').forEach(i => { if(i && i.value) ids.add(String(i.value)); });
+  tbody.querySelectorAll('.item-select').forEach(s => { if(s && s.value) ids.add(String(s.value)); });
+  return ids;
+  }
+
+  function refreshAllItemSelects(){
+  // update each select to remove/disable options that are already selected in other rows
+  const selected = getSelectedIds();
+  document.querySelectorAll('select.item-select').forEach(s => {
+    const current = s.value;
+    // rebuild options from available items + current selection
+    const opts = items.map(it => {
+      const disabled = selected.has(String(it.id)) && String(it.id) !== String(current);
+      return `<option value="${it.id}"${String(it.id)===String(current) ? ' selected' : ''}${disabled? ' disabled' : ''}>${it.name || ''}</option>`;
+    }).join('');
+    s.innerHTML = opts;
+  });
+  const availableCount = items.filter(it => !selected.has(String(it.id))).length;
+  const addBtn = document.getElementById('add-order-row'); if(addBtn) addBtn.disabled = (availableCount === 0);
+  }
+  
+  // call after DOM-mutations that change selected items
+
+  function chooseDefaultForNewRow(){
+    const selected = getSelectedIds();
+    const avail = items.find(it => !selected.has(String(it.id)));
+    return avail ? String(avail.id) : null;
+  }
+
+  // --- end helpers ---
+
+  function addRow(){
+    // choose a default available item to avoid duplicates
+    const defaultId = chooseDefaultForNewRow();
+  try{ console.log('addRow called, defaultId=', defaultId); }catch(e){}
+    if(!defaultId){ alert('No more available items to add'); return; }
+    const row = document.createElement('tr');
+    // build a select with only available (not-selected) items
+    const selected = getSelectedIds();
+    const available = items.filter(it => !selected.has(String(it.id)));
+    const optionsHtml = available.map(it => {
+      const sel = String(it.id) === defaultId ? ' selected' : '';
+      return `<option value="${it.id}"${sel}>${(it.name||'')}</option>`;
+    }).join('');
+    // pick an itemObj for populating HUID/rate/line total
+    const itemObj = items.find(it => String(it.id) === defaultId) || available[0] || {};
+    row.innerHTML = `
+      <td>
+        <select name="line_items[][jewelry_item_id]" class="item-select">${optionsHtml}</select>
+      </td>
+      <td><input type="text" name="line_items[][huid]" value="${itemObj.sku||''}" readonly class="huid-field"></td>
+      <td><input type="text" name="line_items[][hsn]" value=""></td>
+      <td><input type="number" name="line_items[][quantity]" value="1" min="1" class="qty"></td>
+      <td><input type="number" name="line_items[][gross_weight]" value="" step="0.01"></td>
+      <td><input type="number" name="line_items[][net_weight]" value="" step="0.01"></td>
+      <td><input type="number" name="line_items[][rate]" value="${(itemObj.price||0).toFixed(2)}" readonly class="rate-field"><span class="price-cell" style="display:none"></span></td>
+      <td><input type="number" name="line_items[][making_charge]" value="0" step="0.01"></td>
+      <td class="line-total">${money(itemObj.price||0)}</td>
+      <td class="col-actions"><button type="button" class="btn remove">✕</button></td>
+    `;
+  tbody && tbody.appendChild(row);
+  attachRowListeners(row);
+  refreshAllItemSelects();
+  updateRemoveButtons();
+  recalc();
+  }
+
+  function attachRowListeners(row){
+    const select = row.querySelector('.item-select');
+    const hiddenId = row.querySelector('input.item-id-hidden');
+    const qty = row.querySelector('.qty');
+    const priceCell = row.querySelector('.price-cell');
+    const lineTotal = row.querySelector('.line-total');
+    // if we have a select, populate other fields when selection changes
+    if(select){
+      const populateFromId = function(idVal){
+        const it = items.find(x => String(x.id) == String(idVal));
+        const huidInput = row.querySelector('input[name="line_items[][huid]"]');
+        const rateInput = row.querySelector('input[name="line_items[][rate]"]');
+        if(it){ if(huidInput) huidInput.value = it.sku || ''; if(rateInput) rateInput.value = (it.price).toFixed(2); if(priceCell) priceCell.textContent = money(it.price); if(lineTotal) lineTotal.textContent = money(it.price * parseInt(qty.value || 1)); }
+      };
+      // initial populate
+      if(select.value) populateFromId(select.value);
+      select.addEventListener('change', function(){
+        try{ console.log('select.change value=', select.value); }catch(e){}
+        populateFromId(select.value);
+        // after changing selection, other rows' selects need updating (to prevent duplicates)
+        refreshAllItemSelects();
+        recalc();
+        updateSubmitButtons();
+      });
+    }
+
+    qty && qty.addEventListener('input', function(){
+      const idVal = hiddenId ? hiddenId.value : (select ? select.value : null);
+      const it = items.find(x => String(x.id) == String(idVal));
+      if(lineTotal && it) lineTotal.textContent = money(it.price * parseInt(qty.value || 0));
+      recalc();
+    });
+    const rem = row.querySelector('.remove'); if(rem) rem.addEventListener('click', function(){
+      // prevent deleting the only remaining row
+      const rows = tbody ? tbody.querySelectorAll('tr') : [];
+      if(rows.length <= 1){ alert('Cannot remove the only row.'); return; }
+      row.remove(); refreshAllItemSelects(); updateRemoveButtons(); recalc(); updateSubmitButtons();
+    });
+  }
+
+  // ensure existing server-side rows are synced
+  refreshAllItemSelects();
+
+  function updateRemoveButtons(){
+    const rows = tbody.querySelectorAll('tr');
+    const removes = tbody.querySelectorAll('button.remove');
+    if(rows.length <= 1){
+      removes.forEach(b => b.setAttribute('disabled', 'disabled'));
+    } else {
+      removes.forEach(b => b.removeAttribute('disabled'));
+    }
+  }
+
+  // delay wiring that touches the DOM until DOMContentLoaded so scripts don't run too early
+  document.addEventListener('DOMContentLoaded', function(){
+    tbody = document.getElementById('order-items');
+  try{ console.log('DOMContentLoaded, tbody found=', !!tbody); }catch(e){}
+    refreshAllItemSelects();
+    updateRemoveButtons();
+    updateSubmitButtons();
+    const addBtnEl = document.getElementById('add-order-row');
+    if(addBtnEl) addBtnEl.addEventListener('click', addRow);
+    // start with one row if none
+    if(tbody && !tbody.querySelectorAll('tr').length) addRow();
+    // wire tbody input listener (only after tbody exists)
+    tbody && tbody.addEventListener('input', function(e){ recalc(); updateSubmitButtons(); if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge/)) e.target.classList.remove('field-error'); }});
+  });
+
+  function recalc(){
+    let subtotal = 0;
+    tbody.querySelectorAll('tr').forEach(r => {
+      const idInput = r.querySelector('input.item-id-hidden');
+      const select = r.querySelector('.item-select');
+      const idVal = idInput ? idInput.value : (select ? select.value : null);
+      const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0);
+      const it = items.find(x => String(x.id) == String(idVal));
+      const making = parseFloat((r.querySelector('input[name^="line_items"][name$="[making_charge]"]')||{value:0}).value || 0);
+      if(it) subtotal += (it.price || 0) * qty + (isNaN(making)?0:making);
+    });
+    const discount = parseFloat((document.getElementById('discount')||{value:0}).value || 0);
+    const charges = parseFloat((document.getElementById('charges')||{value:0}).value || 0);
+    const taxable = subtotal - discount + charges;
+    const cgstRate = parseFloat((document.getElementById('cgst_rate')||{value:0}).value || 0);
+    const igstRate = parseFloat((document.getElementById('igst_rate')||{value:0}).value || 0);
+    const cgst = taxable * (cgstRate/100);
+    const igst = taxable * (igstRate/100);
+    const subtotalEl = document.getElementById('subtotal'); if(subtotalEl) subtotalEl.textContent = money(subtotal);
+    const discountEl = document.getElementById('discount-display'); if(discountEl) discountEl.textContent = money(discount);
+    const chargesEl = document.getElementById('charges-display'); if(chargesEl) chargesEl.textContent = money(charges);
+    const taxableEl = document.getElementById('taxable'); if(taxableEl) taxableEl.textContent = money(taxable);
+    const cgstEl = document.getElementById('cgst'); if(cgstEl) cgstEl.textContent = money(cgst);
+    const igstEl = document.getElementById('igst'); if(igstEl) igstEl.textContent = money(igst);
+    const grandEl = document.getElementById('grand-total'); if(grandEl) grandEl.textContent = money(taxable + cgst + igst);
+  }
+
+  ['discount','charges','cgst_rate','igst_rate'].forEach(id => { const el = document.getElementById(id); if(el) el.addEventListener('input', function(){ recalc(); updateSubmitButtons(); }); });
+
+  // ensure remove buttons state after initial row (will be run on DOMContentLoaded)
+
+  // client-side validation: require customer (existing or new) and at least one item
+  function showFormError(msg){
+    let err = document.getElementById('form-error');
+    if(!err){
+      err = document.createElement('div'); err.id = 'form-error';
+      err.style = 'background:#fff8e6;border:1px solid #f5e0b7;padding:10px;margin-bottom:12px;color:#7a5a00';
+      const form = document.getElementById('order-form');
+      form && form.parentNode.insertBefore(err, form);
+    }
+    err.textContent = msg;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function clearFormError(){
+    const err = document.getElementById('form-error'); if(err) err.remove();
+  }
+
+  function validateForm(){
+    clearFormError();
+    const existingEl = document.getElementById('existing_customer_id');
+    const existing = existingEl ? existingEl.value : '';
+    const toggle = document.getElementById('toggle-new-customer');
+    if(!existing && (!toggle || !toggle.checked)){
+      showFormError('Please select an existing customer or add a new customer.');
+      return false;
+    }
+    if(toggle && toggle.checked){
+      const fnameEl = document.querySelector('input[name="customer[first_name]"]');
+      const emailEl = document.querySelector('input[name="customer[email]"]');
+      const phoneEl = document.querySelector('input[name="customer[phone]"]');
+      const fname = fnameEl ? fnameEl.value.trim() : '';
+      const email = emailEl ? emailEl.value.trim() : '';
+      const phone = phoneEl ? phoneEl.value.trim() : '';
+      if(!fname || !email || !phone){
+        showFormError('Please fill first name, email and phone for the new customer.');
+        return false;
+      }
+    }
+    // ensure at least one item and qty > 0
+    const rows = tbody ? tbody.querySelectorAll('tr') : [];
+    if(rows.length === 0){ showFormError('Please add at least one item to the order.'); return false; }
+    for(const r of rows){
+      const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0);
+  const idInput = r.querySelector('input.item-id-hidden');
+  const sel = idInput ? idInput : r.querySelector('.item-select');
+      const nweightEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
+      const weight = nweightEl ? parseFloat(nweightEl.value || 0) : 0;
+      if(!sel || !sel.value){ showFormError('Please choose an item for each row.'); return false; }
+      if(qty <= 0){ showFormError('Quantity must be at least 1 for each item.'); return false; }
+      if(!weight || weight <= 0 || isNaN(weight)){ showFormError('Net weight must be provided and greater than 0 for each item.'); return false; }
+    }
+    return true;
+  }
+
+  // quick, non-UI validation used to toggle the disabled state of Create buttons
+  function isFormValidQuiet(){
+    // customer presence
+    const existingEl = document.getElementById('existing_customer_id');
+    const existing = existingEl ? existingEl.value : '';
+    const toggle = document.getElementById('toggle-new-customer');
+    if(!existing && (!toggle || !toggle.checked)) return false;
+    if(toggle && toggle.checked){
+      const fnameEl = document.querySelector('input[name="customer[first_name]"]');
+      const emailEl = document.querySelector('input[name="customer[email]"]');
+      const phoneEl = document.querySelector('input[name="customer[phone]"]');
+      const fname = fnameEl ? fnameEl.value.trim() : '';
+      const email = emailEl ? emailEl.value.trim() : '';
+      const phone = phoneEl ? phoneEl.value.trim() : '';
+      if(!fname || !email || !phone) return false;
+    }
+    // items validity: at least one row with selected item, qty>0, net_weight>0
+    const rows = tbody ? tbody.querySelectorAll('tr') : [];
+    if(rows.length === 0) return false;
+    for(const r of rows){
+      const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0);
+  const idInput = r.querySelector('input.item-id-hidden');
+  const sel = idInput ? idInput : r.querySelector('.item-select');
+      const nweightEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
+      const weight = nweightEl ? parseFloat(nweightEl.value || 0) : 0;
+      if(!sel || !sel.value) return false;
+      if(qty <= 0) return false;
+      if(!weight || weight <= 0 || isNaN(weight)) return false;
+    }
+    return true;
+  }
+
+  function clearFormError(){
+    const err = document.getElementById('form-error'); if(err) err.remove();
+  }
+
+  function validateForm(){
+    clearFormError();
+    const existingEl = document.getElementById('existing_customer_id');
+    const existing = existingEl ? existingEl.value : '';
+    const toggle = document.getElementById('toggle-new-customer');
+    if(!existing && (!toggle || !toggle.checked)){
+      showFormError('Please select an existing customer or add a new customer.');
+      return false;
+    }
+    if(toggle && toggle.checked){
+      const fnameEl = document.querySelector('input[name="customer[first_name]"]');
+      const emailEl = document.querySelector('input[name="customer[email]"]');
+      const phoneEl = document.querySelector('input[name="customer[phone]"]');
+      const fname = fnameEl ? fnameEl.value.trim() : '';
+      const email = emailEl ? emailEl.value.trim() : '';
+      const phone = phoneEl ? phoneEl.value.trim() : '';
+      if(!fname || !email || !phone){
+        showFormError('Please fill first name, email and phone for the new customer.');
+        return false;
+      }
+    }
+    // ensure at least one item and qty > 0
+    const rows = tbody ? tbody.querySelectorAll('tr') : [];
+    if(rows.length === 0){ showFormError('Please add at least one item to the order.'); return false; }
+    for(const r of rows){
+      const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0);
+      const idInput = r.querySelector('input.item-id-hidden');
+      const sel = idInput ? idInput : r.querySelector('.item-select');
+      const nweightEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
+      const weight = nweightEl ? parseFloat(nweightEl.value || 0) : 0;
+      if(!sel || !sel.value){ showFormError('Please choose an item for each row.'); return false; }
+      if(qty <= 0){ showFormError('Quantity must be at least 1 for each item.'); return false; }
+      if(!weight || weight <= 0 || isNaN(weight)){ showFormError('Net weight must be provided and greater than 0 for each item.'); return false; }
+    }
+    return true;
+  }
+
+  // validate on form submit
+  const orderForm = document.getElementById('order-form');
+  if(orderForm) orderForm.addEventListener('submit', function(e){
+    if(!validateForm()){ e.preventDefault(); return false; }
+    clearFormError();
+  });
+</script>
+
+<script>
+  // modal helpers (defensive)
+  function showModalErrors(messages){
+    const list = document.getElementById('error-modal-list'); if(!list) return;
+    list.innerHTML = '';
+    messages.forEach(m => { const li = document.createElement('li'); li.textContent = m; list.appendChild(li); });
+    const modal = document.getElementById('error-modal'); if(modal) modal.style.display = 'flex';
+  }
+  function closeModal(){ const modal = document.getElementById('error-modal'); if(modal) modal.style.display = 'none'; }
+  const emClose = document.getElementById('error-modal-close'); if(emClose) emClose.addEventListener('click', function(){ closeModal(); focusFirstInvalid(); });
+  const emOk = document.getElementById('error-modal-ok'); if(emOk) emOk.addEventListener('click', function(){ closeModal(); focusFirstInvalid(); });
+
+  function focusFirstInvalid(){
+    const first = document.querySelector('.field-error');
+    if(first){ first.focus(); first.scrollIntoView({behavior:'smooth', block:'center'}); }
+  }
+
+  // highlight fields when showing errors
+  function highlightFieldsForErrors(){
+    // clear previous
+    document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+    const rows = tbody ? tbody.querySelectorAll('tr') : [];
+    for(const r of rows){
+      const w = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
+      if(w && (w.value === '' || parseFloat(w.value) <= 0 || isNaN(parseFloat(w.value)))){
+        w.classList.add('field-error');
+      }
+    }
+    // customer fields
+    const toggle = document.getElementById('toggle-new-customer');
+    const existingSel = document.getElementById('existing_customer_id');
+    if((!existingSel || !existingSel.value) && (!toggle || !toggle.checked)){
+      // no customer selected
+      if(existingSel) existingSel.classList.add('field-error');
+    }
+    if(toggle && toggle.checked){
+      ['customer[first_name]','customer[email]','customer[phone]'].forEach(n => {
+        const el = document.querySelector(`[name="${n}"]`);
+        if(el && !el.value.trim()) el.classList.add('field-error');
+      });
+    }
+  }
+
+  // if server sent errors, show modal and highlight
+  if(window.serverErrors && window.serverErrors.length){
+    showModalErrors(window.serverErrors);
+    highlightFieldsForErrors();
+  }
+
+  // update client-side validateForm to highlight fields on error
+  const originalValidate = validateForm;
+  validateForm = function(){
+    const ok = originalValidate();
+    if(!ok){ highlightFieldsForErrors(); }
+    return ok;
+  };
+</script>
+
+<script>
+  // toggles for customer form (defensive)
+  const toggleEl = document.getElementById('toggle-new-customer');
+  const newCust = document.getElementById('new-customer-form');
+  const existingSelect = document.getElementById('existing_customer_id');
+  if(toggleEl){
+    toggleEl.addEventListener('change', function(){
+      if(toggleEl.checked){
+        if(newCust) newCust.style.display = 'block';
+        if(existingSelect){ existingSelect.value = ''; existingSelect.disabled = true; }
+      } else {
+        if(newCust) newCust.style.display = 'none';
+        if(existingSelect) existingSelect.disabled = false;
+      }
+    });
+  }
+  if(existingSelect){
+    existingSelect.addEventListener('change', function(){
+      if(existingSelect.value){
+        if(toggleEl) toggleEl.checked = false;
+        if(newCust) newCust.style.display = 'none';
+        existingSelect.disabled = false;
+      }
+    });
+  }
+</script>
+
+<script>
+  // wire top submit button to the form (defensive)
+  const topSubmit = document.getElementById('submit-order-top');
+  if(topSubmit){ topSubmit.addEventListener('click', function(e){ e.preventDefault(); const of = document.getElementById('order-form'); if(of) of.submit(); }); }
+</script>
+
+<script>
+  // enable/disable Create buttons based on customer presence
+  function hasValidCustomer(){
+    const existingEl = document.getElementById('existing_customer_id');
+    const toggleEl = document.getElementById('toggle-new-customer');
+    if(existingEl && existingEl.value) return true;
+    if(toggleEl && toggleEl.checked){
+      const f = document.querySelector('input[name="customer[first_name]"]');
+      const e = document.querySelector('input[name="customer[email]"]');
+      const p = document.querySelector('input[name="customer[phone]"]');
+      return f && e && p && f.value.trim() !== '' && e.value.trim() !== '' && p.value.trim() !== '';
+    }
+    return false;
+  }
+
+  function updateSubmitButtons(){
+    const ok = isFormValidQuiet();
+    const btns = [];
+    const top = document.getElementById('submit-order-top'); if(top) btns.push(top);
+    const bottom = document.getElementById('submit-order-bottom'); if(bottom) btns.push(bottom);
+    // also include any default submit inputs
+    document.querySelectorAll('input[type="submit"].btn.btn-primary').forEach(b => { if(!btns.includes(b)) btns.push(b); });
+    btns.forEach(b => b.disabled = !ok);
+  }
+
+  // wire customer-related events to keep submit state in sync
+  (function(){
+    const existingEl = document.getElementById('existing_customer_id');
+    const toggleEl = document.getElementById('toggle-new-customer');
+    if(existingEl) existingEl.addEventListener('change', function(){
+      // if an existing customer is selected, hide/clear new-customer toggle
+      if(existingEl.value){ if(toggleEl) { toggleEl.checked = false; const newCust = document.getElementById('new-customer-form'); if(newCust) newCust.style.display = 'none'; } }
+      updateSubmitButtons();
+    });
+    if(toggleEl) toggleEl.addEventListener('change', function(){
+      const newCust = document.getElementById('new-customer-form');
+      if(toggleEl.checked){ if(newCust) newCust.style.display = 'block'; if(existingEl){ existingEl.value = ''; existingEl.disabled = true; } }
+      else { if(newCust) newCust.style.display = 'none'; if(existingEl) existingEl.disabled = false; }
+      updateSubmitButtons();
+    });
+    // watch new-customer inputs
+    ['customer[first_name]','customer[email]','customer[phone]'].forEach(name => {
+      const el = document.querySelector(`[name="${name}"]`);
+      if(el) el.addEventListener('input', updateSubmitButtons);
+    });
+    // initial sync
+    updateSubmitButtons();
+  })();
+</script>

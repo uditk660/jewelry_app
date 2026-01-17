@@ -1,0 +1,11 @@
+<h1><%= @inventory_item.jewelry_item.name %> - Inventory</h1>
+<p>Available: <%= @inventory_item.available_grams %> g</p>
+<p>Location: <%= @inventory_item.location %></p>
+<h2>Movements</h2>
+<ul>
+  <% @inventory_item.stock_movements.order(created_at: :desc).each do |m| %>
+    <li><%= m.created_at %> - <%= m.movement_type %> - <%= m.change_grams %>g - <%= m.note %></li>
+  <% end %>
+</ul>
+
+<%= render 'movement_form' %>

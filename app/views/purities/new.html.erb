@@ -1,0 +1,26 @@
+<h1>New Purity</h1>
+<%= form_for @purity, url: purities_path do |f| %>
+  <div>
+    <%= f.label :metal_id, 'Metal' %><br>
+    <%= f.collection_select :metal_id, @metals, :id, :name %>
+  </div>
+  <div>
+    <%= f.label :name %><br>
+    <%= f.text_field :name %>
+  </div>
+  <div>
+    <%= f.label :purity_percent %><br>
+    <%= f.number_field :purity_percent, step: 0.0001 %>
+  </div>
+  <div>
+    <%= f.label :updated_price %><br>
+    <%= f.number_field :updated_price, step: 0.01 %>
+  </div>
+  <div>
+    <%= f.label :remarks %><br>
+    <%= f.text_area :remarks %>
+  </div>
+  <div>
+    <%= f.submit 'Create' %>
+  </div>
+<% end %>

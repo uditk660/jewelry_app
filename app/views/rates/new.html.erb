@@ -1,0 +1,83 @@
+<style>
+/* Rates new form styling */
+.rate-form { max-width:820px; margin:28px auto; padding:0 16px; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial }
+.rate-card { background:#fff; padding:18px; border-radius:12px; box-shadow:0 10px 30px rgba(2,6,23,0.06); border:1px solid rgba(2,6,23,0.03) }
+.field { margin-bottom:12px }
+.label { display:block; font-size:13px; color:#374151; margin-bottom:6px }
+.input, select { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #e6edf5 }
+.row { display:flex; gap:12px }
+.col { flex:1 }
+.muted { color:#64748b }
+.btn { padding:10px 14px; background:#0ea5a4; color:#fff; border-radius:8px; border:none }
+@media(max-width:700px){ .row{flex-direction:column} }
+</style>
+
+<div class="rate-form">
+  <div class="rate-card">
+    <h2 style="margin-top:0">Set Daily Metal Price</h2>
+    <p class="muted">Choose metal and purity, enter price per gram (₹), and save.</p>
+
+    <%= form_for @rate, url: rates_path do |f| %>
+      <div class="row">
+        <div class="col field">
+          <label class="label">Date</label>
+          <%= f.date_field :date, class: 'input' %>
+        </div>
+        <div class="col field">
+          <label class="label">Metal</label>
+          <select id="metal-select" name="metal_id" class="input">
+            <% @metals.each do |m| %>
+              <option value="<%= m.id %>"><%= m.name %></option>
+            <% end %>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <div class="col field">
+          <label class="label">Purity</label>
+          <select id="purity-select" name="purity_id" class="input">
+            <% @purities_for_metal.each do |p| %>
+              <option value="<%= p.id %>"><%= p.name %> (<%= p.purity_percent %>%)</option>
+            <% end %>
+          </select>
+        </div>
+        <div class="col field">
+          <label class="label">Price per gram (₹)</label>
+          <input type="text" name="price_per_gram" id="price_per_gram" class="input" placeholder="e.g. 4200.50" value="" />
+        </div>
+      </div>
+
+      <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <a href="<%= rates_path %>" class="muted">Back to rates</a>
+        <button class="btn" type="submit">Save Rate</button>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<script>
+// dynamic purity loading (no extra endpoint: preloaded via data attribute or could be added)
+document.addEventListener('DOMContentLoaded', function(){
+  var metalSelect = document.getElementById('metal-select');
+  var puritySelect = document.getElementById('purity-select');
+  var purities = {};
+  <% @metals.each do |m| %>
+    purities['<%= m.id %>'] = [
+      <% m.purities.order(:purity_percent).each do |p| %>
+        { id: '<%= p.id %>', label: '<%= p.name %> (<%= p.purity_percent %>%)' },
+      <% end %>
+    ];
+  <% end %>
+
+  function rebuildPurities(mid){
+    var list = purities[mid] || [];
+    puritySelect.innerHTML = '';
+    list.forEach(function(item){
+      var opt = document.createElement('option'); opt.value = item.id; opt.textContent = item.label; puritySelect.appendChild(opt);
+    });
+  }
+
+  metalSelect.addEventListener('change', function(){ rebuildPurities(this.value); });
+});
+</script>

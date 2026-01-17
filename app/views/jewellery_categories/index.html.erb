@@ -1,0 +1,7 @@
+<h1>Jewellery Categories</h1>
+<p><a href="<%= new_jewellery_category_path %>">New Category</a></p>
+<ul>
+  <% @categories.each do |c| %>
+    <li><%= c.name %> (<%= c.metal.name if c.metal %>)</li>
+  <% end %>
+</ul>

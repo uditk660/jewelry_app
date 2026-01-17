@@ -1,0 +1,164 @@
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>Edit Jewelry Item</h1>
+      <p class="lead">Update product details, pricing and available quantity.</p>
+    </div>
+    <div class="right">
+      <%= link_to 'Back to Item', jewelry_item_path(@item), class: 'btn' %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="edit-grid">
+      <div class="edit-form">
+        <%= form_for @item, url: jewelry_item_path(@item), method: :put do |f| %>
+          <div class="form-row">
+            <div style="flex:1">
+              <%= f.label :name %>
+              <%= f.text_field :name, class: 'form-control' %>
+            </div>
+          </div>
+
+          <div style="margin-top:10px">
+            <%= f.label :description %>
+            <%= f.text_area :description, rows: 4, class: 'form-control' %>
+          </div>
+
+          <div class="form-row" style="margin-top:10px">
+            <div style="flex:1">
+              <%= f.label :quantity, 'Quantity (pieces)' %>
+              <%= f.number_field :quantity, step: 1, min: 0, class: 'form-control' %>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top:10px">
+            <div style="flex:1">
+              <%= f.label :sku %>
+              <%= f.text_field :sku, class: 'form-control', readonly: true %>
+            </div>
+            <div style="width:220px;margin-left:12px">
+              <%= f.label :weight_grams, 'Weight (g)' %>
+              <%= f.number_field :weight_grams, step: 0.01, class: 'form-control' %>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top:10px">
+            <div style="flex:1">
+              <%= f.label :price_cents, 'Price (₹) — enter rupees (decimal)' %>
+              <%= text_field_tag 'price_rupees', (@item.price.present? ? ('%.2f' % @item.price) : ''), class: 'form-control', id: 'price_rupees', placeholder: 'e.g. 1234.50' %>
+              <%= f.hidden_field :price_cents, id: 'price_cents_hidden' %>
+            </div>
+          </div>
+
+          <div style="margin-top:14px">
+            <%= f.submit 'Update Item', class: 'btn btn-primary' %>
+            <%= link_to 'Cancel', jewelry_items_path, class: 'btn btn-outline' %>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="edit-preview">
+        <div class="product-hero card">
+          <div class="product-grid">
+            <div class="product-media">
+              <div class="product-image">💍</div>
+            </div>
+            <div class="product-details">
+              <h2 id="preview-title" class="product-title"><%= @item.name.presence || 'Item' %></h2>
+              <div id="preview-meta" class="product-meta small muted">SKU: <span id="preview-sku"><%= @item.sku.presence || '—' %></span> • Category: <%= @item.jewellery_category.try(:name) || '—' %></div>
+              <div class="product-pricing" style="margin-top:12px">
+                <div id="preview-price" class="price-large"><%= @item.price.present? ? "\u20B9#{'%.2f' % @item.price}" : '—' %></div>
+                <div class="product-attributes small muted" style="margin-left:12px">
+                  <div>Weight: <strong id="preview-weight"><%= @item.weight_grams.to_f %> g</strong></div>
+                  <div>Purity: <strong><%= @item.purity.try(:name) || '—' %></strong></div>
+                </div>
+              </div>
+              <div style="margin-top:12px" class="small muted">
+                <% if @item.quantity.present? && @item.quantity > 0 %>
+                  In stock: <strong><%= @item.quantity %> pcs</strong>
+                <% else %>
+                  Out of stock
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      <script>
+        // live preview sync for edit form (mirrors new form behavior)
+        (function(){
+          function slugify(s){
+            return s.toString().toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0,10);
+          }
+
+          const _ALNUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          function rndAlnum(n){
+            let out='';
+            for(let i=0;i<n;i++) out += _ALNUM.charAt(Math.floor(Math.random()*_ALNUM.length));
+            return out;
+          }
+
+          const nameEl = document.querySelector('input[name="jewelry_item[name]"]');
+          const descEl = document.querySelector('textarea[name="jewelry_item[description]"]');
+          const priceRupeesEl = document.getElementById('price_rupees');
+          const priceHiddenEl = document.getElementById('price_cents_hidden');
+          const weightEl = document.querySelector('input[name="jewelry_item[weight_grams]"]');
+          const skuEl = document.querySelector('input[name="jewelry_item[sku]"]');
+
+          const previewTitle = document.getElementById('preview-title');
+          const previewSku = document.getElementById('preview-sku');
+          const previewPrice = document.getElementById('preview-price');
+          const previewWeight = document.getElementById('preview-weight');
+          const previewDesc = document.getElementById('preview-desc');
+
+          function updatePreview(){
+            if(nameEl) previewTitle.textContent = nameEl.value || (previewTitle.textContent || 'Item');
+            if(descEl) previewDesc.innerHTML = (descEl.value || '').replace(/\n/g,'<br>');
+            let rupeesText = '—';
+            if(priceHiddenEl && priceHiddenEl.value){
+              rupeesText = '\u20B9' + (parseInt(priceHiddenEl.value)/100).toFixed(2);
+            } else if(priceRupeesEl && priceRupeesEl.value){
+              const v = parseFloat(priceRupeesEl.value);
+              if(!isNaN(v)) rupeesText = '\u20B9' + v.toFixed(2);
+            }
+            if(previewPrice) previewPrice.textContent = rupeesText;
+            if(weightEl) previewWeight.textContent = (parseFloat(weightEl.value || 0)).toFixed(2) + ' g';
+            if(skuEl && skuEl.value.trim().length) previewSku.textContent = skuEl.value;
+          }
+
+          function maybeGenerateSku(){
+            if(!skuEl) return;
+            if(skuEl.value && skuEl.value.trim().length) { previewSku.textContent = skuEl.value; return; }
+            const s = nameEl ? slugify(nameEl.value || '') : '';
+            if(s){
+              const base = s.slice(0,10);
+              const need = 10 - base.length;
+              const suffix = rndAlnum(need);
+              skuEl.value = 'J' + (base + suffix).slice(0,10);
+            } else {
+              skuEl.value = 'J' + rndAlnum(10);
+            }
+            previewSku.textContent = skuEl.value || '—';
+          }
+
+          [nameEl, descEl, priceRupeesEl, weightEl, skuEl].forEach(el=>{ if(!el) return; el.addEventListener('input', function(){ updatePreview(); }); });
+          if(nameEl) nameEl.addEventListener('input', function(){ maybeGenerateSku(); });
+
+          if(priceRupeesEl){
+            priceRupeesEl.addEventListener('input', function(){
+              const v = parseFloat(priceRupeesEl.value);
+              if(isNaN(v)) { priceHiddenEl.value = ''; } else { priceHiddenEl.value = Math.round(v * 100); }
+              updatePreview();
+            });
+          }
+
+          if(priceRupeesEl && priceRupeesEl.value && priceHiddenEl) priceHiddenEl.value = Math.round(parseFloat(priceRupeesEl.value) * 100);
+          maybeGenerateSku();
+          updatePreview();
+        })();
+      </script>

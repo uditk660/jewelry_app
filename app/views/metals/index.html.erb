@@ -1,0 +1,7 @@
+<h1>Metals</h1>
+<p><a href="<%= new_metal_path %>">New Metal</a></p>
+<ul>
+  <% @metals.each do |m| %>
+    <li><%= m.name %> (<%= m.base_unit %>)</li>
+  <% end %>
+</ul>

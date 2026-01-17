@@ -1,0 +1,15 @@
+<h1>Daily Rates</h1>
+<p><a href="<%= new_rate_path %>">Add Rate</a></p>
+<table>
+  <thead><tr><th>Date</th><th>Metal</th><th>Price (per gram)</th></tr></thead>
+  <tbody>
+  <% @rates.each do |r| %>
+    <tr>
+      <td><%= r.date %></td>
+      <td><%= r.metal_type %></td>
+      <td>$<%= sprintf('%.2f', r.price_per_gram) %></td>
+      <td><a href="<%= edit_rate_path(r) %>">Edit</a></td>
+    </tr>
+  <% end %>
+  </tbody>
+</table>

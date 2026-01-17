@@ -1,0 +1,35 @@
+<h1>Metal Stocks</h1>
+<p><%= link_to 'New Stock Record', new_metal_stock_path %> | <%= link_to 'Stores', stores_path %></p>
+<table>
+  <thead>
+    <tr><th>Store</th><th>Metal</th><th>Available</th><th>Price / g</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    <% @metal_stocks.each do |ms| %>
+      <tr>
+        <td><%= ms.store.name %></td>
+        <td><%= ms.metal.name %></td>
+  <td id="ms-<%= ms.id %>-available"><%= ms.available_grams.to_i %></td>
+  <td><%= format_rupees(ms.price_per_gram) %></td>
+        <td>
+          <%= link_to 'Adjust', adjust_metal_stock_path(ms) %>
+        </td>
+        <td>
+          <%= form_tag do_adjust_metal_stock_path(ms), method: :post do %>
+            <%= number_field_tag 'metal_stock[change_grams]', 0, in: -100000..100000, step: 1, size: 6 %>
+            <%= hidden_field_tag 'metal_stock[note]', "adjusted from index" %>
+            <%= submit_tag 'Apply' %>
+          <% end %>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<script>
+  // Focus first change input for convenience
+  document.addEventListener('DOMContentLoaded', function(){
+    var inp = document.querySelector('input[name="metal_stock[change_grams]"]');
+    if(inp) inp.focus();
+  });
+</script>

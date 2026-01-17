@@ -1,0 +1,227 @@
+<style>
+/* inlined orders_page.css */
+/* ===============================
+   ORDERS PAGE
+================================ */
+
+.orders-container {
+  max-width: 1200px;
+  margin: auto;
+  padding: 16px;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* HEADER */
+.orders-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.orders-header-left h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.orders-header-left .lead {
+  margin: 4px 0 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.orders-header-right {
+  text-align: right;
+}
+
+.today-badge {
+  margin-top: 8px;
+  background: #f1f5f9;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+/* CARD */
+.orders-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+/* SEARCH */
+.orders-search {
+  margin-bottom: 12px;
+}
+
+.orders-search form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.orders-search input {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  min-width: 240px;
+}
+
+/* TABLE */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 900px;
+}
+
+.orders-table th,
+.orders-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: top;
+}
+
+.orders-table th {
+  background: #f9fafb;
+  text-align: left;
+  font-weight: 600;
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.total {
+  font-weight: 600;
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.items-cell {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* STATUS */
+.status-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: #e5e7eb;
+  display: inline-block;
+}
+
+/* BUTTONS */
+.btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .orders-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .orders-header-right {
+    text-align: left;
+  }
+}
+
+</style>
+<div class="orders-container container">
+  <div class="page-header">
+    <div>
+      <h1>Orders</h1>
+      <p class="lead">All orders placed in the system. Search by order id or item id/name.</p>
+    </div>
+    <div style="text-align:right">
+      <div style="margin-bottom:8px">
+        <%= link_to 'New Sale', new_order_path, class: 'btn btn-primary' %>
+      </div>
+  <div class="badge">Today's Sales: <strong><%= "\u20B9#{'%.2f' % (@today_total.to_f || 0.0)}" %></strong></div>
+    </div>
+  </div>
+
+  <div class="orders-card card">
+    <div class="orders-search" style="display:flex; gap:12px; align-items:center; margin-bottom:12px">
+      <form method="get" action="<%= orders_path %>">
+        <input type="search" name="q" placeholder="Search order id, item id or text" value="<%=h @q %>" >
+        <button class="btn">Search</button>
+      </form>
+    </div>
+
+  <div class="table-wrap">
+  <table class="orders-table">
+      <thead>
+        <tr>
+          <th>SNo</th>
+          <th>Invoice</th>
+          <th>Order #</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Items</th>
+          <th>Gross (g)</th>
+          <th>Net (g)</th>
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @orders.each_with_index do |o, idx| %>
+          <tr>
+            <td><%= idx + 1 %></td>
+            <td>
+              <% if o.invoice_number.present? %>
+                <%= link_to o.invoice_number, invoice_order_path(o), class: 'btn btn-sm' %>
+              <% else %>
+                <%= link_to 'Generate', invoice_order_path(o), class: 'btn btn-sm' %>
+              <% end %>
+            </td>
+            <td><%= link_to "#\u0000#{o.id}", order_path(o) %></td>
+            <td><span class="badge"><%= o.status %></span></td>
+            <td class="small muted"><%= o.created_at.strftime('%b %d, %H:%M') %></td>
+            <td class="small muted item-list" title="<%= h(o.line_items.map{ |li| "#{li.jewelry_item.try(:name)} x#{li.quantity}" }.join(', ')) %>">
+              <%= truncate(o.line_items.map{ |li| "#{li.jewelry_item.try(:name)} x#{li.quantity}" }.join(', '), length: 80) %>
+            </td>
+            <td class="small muted"><%= o.gross_weight.to_f %></td>
+            <td class="small muted"><%= o.net_weight.to_f %></td>
+            <td><%= "\u20B9#{'%.2f' % o.total_with_taxes(cgst_rate: o.cgst_rate.to_f, igst_rate: o.igst_rate.to_f)}" %></td>
+            <td><%= link_to 'View', order_path(o), class: 'btn' %></td>
+          </tr>
+        <% end %>
+      </tbody>
+  </table>
+  </div>
+  </div>
+</div>

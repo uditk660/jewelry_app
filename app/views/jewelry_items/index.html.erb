@@ -1,0 +1,115 @@
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>Jewelry Catalog</h1>
+      <p class="lead">Browse items, view stock and master-data attributes inline.</p>
+    </div>
+    <div>
+      <%= link_to 'Add New Item', new_jewelry_item_path, class: 'btn btn-primary' %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-toolbar">
+      <form action="" method="get" class="inline-form search-form">
+        <input type="text" name="q" value="<%= h(params[:q]) %>" placeholder="Search by name, sku, category, metal or purity" />
+        <button class="btn" type="submit">Search</button>
+        <% if params[:q].present? %>
+          <%= link_to 'Clear', jewelry_items_path, class: 'btn btn-link' %>
+        <% end %>
+      </form>
+      <div class="pagination-controls muted">
+        <span>Total: <%= @total_count || @items.count %></span>
+      </div>
+    </div>
+    <table class="catalog-table">
+      <thead>
+        <tr>
+          <th class="serial-col">#</th>
+          <th class="sku-col">SKU</th>
+          <th class="item-col">Item</th>
+          <th class="category-col">Category</th>
+          <th class="metal-col">Metal</th>
+          <th class="purity-col">Purity</th>
+          <th class="weight-col"><%= link_to 'Weight (g)', jewelry_items_path(request.query_parameters.merge(sort: 'weight', direction: params[:direction] == 'asc' ? 'desc' : 'asc')) %></th>
+          <th class="price-col"><%= link_to 'Price', jewelry_items_path(request.query_parameters.merge(sort: 'price', direction: params[:direction] == 'asc' ? 'desc' : 'asc')) %></th>
+          <th class="available-col"><%= link_to 'Available', jewelry_items_path(request.query_parameters.merge(sort: 'available', direction: params[:direction] == 'asc' ? 'desc' : 'asc')) %></th>
+          <th class="actions-col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @items.each_with_index do |item, idx| %>
+          <tr>
+            <td class="serial-col small muted" style="text-align:left"><%= (@start_index || 0) + idx + 1 %></td>
+            <td class="sku-col small muted"><%= item.sku %></td>
+            <td class="item-col">
+              <div class="item-row">
+                <div class="item-avatar" aria-hidden="true">💍</div>
+                <div class="item-meta">
+                  <div class="item-title"><strong><%= link_to item.name, jewelry_item_path(item) %></strong></div>
+                  <div class="small muted item-desc"><%= truncate(item.description.to_s, length: 100) %></div>
+                </div>
+              </div>
+            </td>
+            <td class="small muted">
+              <% if item.jewellery_category %>
+                <%= link_to item.jewellery_category.name, jewellery_category_path(item.jewellery_category) %>
+              <% else %>
+                &mdash;
+              <% end %>
+            </td>
+            <td class="small muted">
+              <% if item.metal %>
+                <%= link_to item.metal.name, metal_path(item.metal) %>
+              <% else %>
+                &mdash;
+              <% end %>
+            </td>
+            <td class="small muted">
+              <% if item.purity %>
+                <%= link_to item.purity.name, purity_path(item.purity) %>
+              <% else %>
+                &mdash;
+              <% end %>
+            </td>
+            <td><%= item.weight_grams.to_f %></td>
+            <td class="price-col"><span class="price-badge"> <%= "\u20B9#{'%.2f' % item.price.to_f}" %> </span></td>
+      <td class="text-center">
+        <% if item.quantity.present? && item.quantity > 0 %>
+          <span class="available-badge"> <%= item.quantity.to_i %> pcs</span>
+        <% else %>
+          <% if item.metal %>
+            <% stocks = item.metal.respond_to?(:metal_stocks) ? item.metal.metal_stocks : [] %>
+            <% total = stocks.sum(&:available_grams) %>
+            <span class="available-badge"> <%= total.to_i %> g</span>
+            <div class="small muted stock-breakdown"><%= stocks.map{|s| "#{s.store.try(:name)}: #{s.available_grams}g"}.join(' | ') %></div>
+          <% else %>
+            <% inv = InventoryItem.find_by(jewelry_item: item) %>
+            <span class="available-badge"> <%= inv ? "#{inv.available_grams.to_i} g" : '—' %></span>
+          <% end %>
+        <% end %>
+      </td>
+            <td class="actions-col">
+              <%= link_to 'View', jewelry_item_path(item), class: 'btn' %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <div class="card-footer pagination">
+      <% if @page && @per_page %>
+        <% prev_page = @page - 1 %>
+        <% next_page = @page + 1 %>
+        <div class="pager">
+          <% if prev_page >= 1 %>
+            <%= link_to '← Prev', jewelry_items_path(request.query_parameters.merge(page: prev_page)), class: 'btn' %>
+          <% end %>
+          <span class="muted">Page <%= @page %></span>
+          <% if (@page * @per_page) < (@total_count || 0) %>
+            <%= link_to 'Next →', jewelry_items_path(request.query_parameters.merge(page: next_page)), class: 'btn' %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>

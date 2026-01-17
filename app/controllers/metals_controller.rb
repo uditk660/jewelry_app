@@ -1,0 +1,25 @@
+class MetalsController < ApplicationController
+  def index
+    @metals = Metal.order(:name)
+    render template: 'metals/index'
+  end
+
+  def new
+    @metal = Metal.new
+    render template: 'metals/new'
+  end
+
+  def create
+    @metal = Metal.new(metal_params)
+    if @metal.save
+      redirect_to metals_path, notice: 'Metal created.'
+    else
+      render template: 'metals/new'
+    end
+  end
+
+  private
+  def metal_params
+    params.require(:metal).permit(:name, :base_unit, :active)
+  end
+end

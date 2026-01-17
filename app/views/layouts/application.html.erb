@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>JewelryApp</title>
+  <%= csrf_meta_tags %>
+
+  <%= csp_meta_tag if respond_to?(:csp_meta_tag) %>
+
+    <%= stylesheet_link_tag    'application', media: 'all' %>
+    <%= javascript_include_tag 'application' %>
+  </head>
+
+  <body>
+    <%= render 'shared/navbar' %>
+    <div class="container">
+      <% if flash[:notice] %>
+        <div class="flash notice"><%= flash[:notice] %></div>
+      <% end %>
+      <% if flash[:alert] %>
+        <div class="flash alert"><%= flash[:alert] %></div>
+      <% end %>
+      <%= yield %>
+    </div>
+  </body>
+</html>

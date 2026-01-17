@@ -1,0 +1,19 @@
+<h3>Adjust Inventory</h3>
+<%= form_tag stock_movements_path, method: :post do %>
+  <%= hidden_field_tag :inventory_item_id, @inventory_item.id %>
+  <div>
+    <label>Change (grams)</label>
+    <%= number_field_tag :change_grams, 0 %>
+  </div>
+  <div>
+    <label>Type</label>
+    <%= select_tag :movement_type, options_for_select([['in','in'],['out','out'],['adjustment','adjustment']]) %>
+  </div>
+  <div>
+    <label>Note</label>
+    <%= text_field_tag :note %>
+  </div>
+  <div>
+    <%= submit_tag 'Apply' %>
+  </div>
+<% end %>

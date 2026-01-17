@@ -1,0 +1,174 @@
+<div class="order-show">
+
+  <!-- ===== HEADER ===== -->
+  <header class="order-header">
+    <div>
+      <h1>Sales Order <span>#<%= @order.id %></span></h1>
+      <p>
+        Status:
+        <strong class="status <%= @order.status %>">
+          <%= @order.status.capitalize %>
+        </strong>
+        · Created <%= @order.created_at.strftime('%d %b %Y, %I:%M %p') %>
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <%= link_to 'Back to Orders', orders_path, class: 'btn btn-secondary' %>
+      <% if @order.status == 'pending' %>
+        <%= link_to 'Record Payment', '#charge-form', class: 'btn btn-primary' %>
+      <% end %>
+    </div>
+  </header>
+
+  <!-- ===== ITEMS ===== -->
+  <section class="card">
+    <h2>Order Items</h2>
+
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>HUID</th>
+          <th>HSN</th>
+          <th class="center">Qty</th>
+          <th class="right">Rate (₹)</th>
+          <th class="right">Making (₹)</th>
+          <th class="right">Line Total (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @order.line_items.each do |li| %>
+          <tr>
+            <td class="item-name"><%= li.jewelry_item.name %></td>
+            <td><%= li.huid.presence || '-' %></td>
+            <td><%= li.hsn.presence || '-' %></td>
+            <td class="center"><%= li.quantity %></td>
+            <td class="right"><%= '%.2f' % li.rate.to_f %></td>
+            <td class="right"><%= '%.2f' % li.making_charge.to_f %></td>
+            <td class="right total-cell">
+              <%= '%.2f' % li.total %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ===== SUMMARY + PAYMENT ===== -->
+  <div class="layout-two">
+
+    <!-- SUMMARY -->
+    <aside class="summary-card">
+      <h3>Order Summary</h3>
+
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <span>₹<%= '%.2f' % @order.subtotal %></span>
+      </div>
+
+  <!-- Discount and Making Charges intentionally hidden in summary per UI request -->
+
+      <hr>
+
+      <div class="summary-row emphasis">
+        <span>Taxable Amount</span>
+        <span id="taxable-display">
+          ₹<%= '%.2f' % (@order.subtotal - @order.discount.to_f + @order.charges.to_f) %>
+        </span>
+      </div>
+
+      <div class="summary-total">
+        <span>Total Payable</span>
+        <strong id="total-display">
+          ₹<%= '%.2f' % @order.total_with_taxes(
+            cgst_rate: @order.cgst_rate,
+            igst_rate: @order.igst_rate
+          ) %>
+        </strong>
+      </div>
+    </aside>
+
+    <!-- PAYMENT -->
+    <% if @order.status == 'pending' %>
+      <section id="charge-form" class="payment-card">
+        <h3>Record Payment</h3>
+        <p class="hint">
+          Finalize the order by confirming tax, discount, and charges.
+        </p>
+
+        <form method="post"
+              action="<%= record_payment_order_path(@order) %>">
+          <input type="hidden"
+                 name="authenticity_token"
+                 value="<%= form_authenticity_token %>">
+
+          <div class="form-grid">
+            <div>
+              <label>CGST %</label>
+              <input id="cgst_rate_input" name="cgst_rate" type="number" step="0.01"
+                     value="<%= @order.cgst_rate.to_f %>">
+            </div>
+
+            <div>
+              <label>IGST %</label>
+              <input id="igst_rate_input" name="igst_rate" type="number" step="0.01"
+                     value="<%= @order.igst_rate.to_f %>">
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button id="record-payment-submit" class="btn btn-primary" disabled>
+              Record Payment & Print Invoice
+            </button>
+          </div>
+        </form>
+      </section>
+    <% end %>
+
+  </div>
+</div>
+
+<!-- JS: run after DOM ready -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  function money(v){ return '\u20B9' + v.toFixed(2); }
+  const subtotal = <%= @order.subtotal.to_f %>;
+  const discount = <%= @order.discount.to_f %>;
+  const charges = <%= @order.charges.to_f %>;
+
+  const cgstInput = document.getElementById('cgst_rate_input');
+  const igstInput = document.getElementById('igst_rate_input');
+  const submitBtn = document.getElementById('record-payment-submit');
+
+  function parseRate(el){
+    if(!el) return 0;
+    const v = parseFloat(el.value);
+    return isNaN(v) ? 0 : v;
+  }
+
+  function update(){
+    const taxable = subtotal - discount + charges;
+    const cgstRate = parseRate(cgstInput);
+    const igstRate = parseRate(igstInput);
+    const cgst = taxable * (cgstRate/100);
+    const igst = taxable * (igstRate/100);
+    const cgstAmountEl = document.getElementById('cgst-amount'); if(cgstAmountEl) cgstAmountEl.textContent = money(cgst);
+    const igstAmountEl = document.getElementById('igst-amount'); if(igstAmountEl) igstAmountEl.textContent = money(igst);
+    const totalEl = document.getElementById('total-display'); if(totalEl) totalEl.textContent = money(taxable + cgst + igst);
+
+    // enable submit only if both tax inputs contain numeric values (non-empty)
+    if(submitBtn){
+      const ok = (cgstInput && cgstInput.value !== '' && !isNaN(parseFloat(cgstInput.value))) &&
+                 (igstInput && igstInput.value !== '' && !isNaN(parseFloat(igstInput.value)));
+      submitBtn.disabled = !ok;
+    }
+  }
+
+  if(cgstInput) cgstInput.addEventListener('input', update);
+  if(igstInput) igstInput.addEventListener('input', update);
+
+  // run once on load
+  update();
+});
+</script>

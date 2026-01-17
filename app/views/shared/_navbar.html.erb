@@ -1,0 +1,109 @@
+<nav class="navbar">
+  <div class="brand"><a href="<%= root_path %>">JewelryApp</a></div>
+  <button class="nav-toggle" aria-expanded="false">☰ Menu</button>
+
+  <ul class="nav-menu" role="menubar">
+    <!-- Master Data -->
+    <li class="nav-item" role="none">
+      <a role="menuitem" href="<%= jewelry_items_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Master Data ▾</a>
+      <ul class="submenu" role="menu">
+        <li><a href="<%= jewelry_items_path %>">Existing Items</a></li>
+        <li><a href="<%= new_jewelry_item_path %>">New Item</a></li>
+        <li class="submenu-divider" aria-hidden="true">—</li>
+        <li><a href="<%= metals_path %>">Existing Metals</a></li>
+        <li><a href="<%= new_metal_path %>">New Metal</a></li>
+        <li><a href="<%= purities_path %>">Existing Purities</a></li>
+        <li><a href="<%= new_purity_path %>">New Purity</a></li>
+  <li><a href="<%= customers_path %>">Existing Customers</a></li>
+  <li><a href="<%= new_customer_path %>">New Customer</a></li>
+        <li><a href="<%= jewellery_categories_path %>">Existing Categories</a></li>
+        <li><a href="<%= new_jewellery_category_path %>">New Category</a></li>
+      </ul>
+    </li>
+
+    <!-- Inventory -->
+    <li class="nav-item" role="none">
+      <a role="menuitem" href="<%= inventory_items_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Inventory ▾</a>
+      <ul class="submenu" role="menu">
+        <li><a href="<%= inventory_items_path %>">Existing Inventory</a></li>
+        <li><a href="<%= new_inventory_item_path %>">New Inventory Record</a></li>
+        <li class="submenu-divider" aria-hidden="true">—</li>
+        <li><a href="<%= stores_path %>">Stores</a></li>
+        <li><a href="<%= new_store_path %>">New Store</a></li>
+        <li><a href="<%= metal_stocks_path %>">Metal Stocks</a></li>
+        <li><a href="<%= new_metal_stock_path %>">New Metal Stock</a></li>
+      </ul>
+    </li>
+
+    <!-- Rates -->
+    <li class="nav-item" role="none">
+      <a role="menuitem" href="<%= rates_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Rates ▾</a>
+      <ul class="submenu" role="menu">
+        <li><a href="<%= rates_path %>">Existing Rates</a></li>
+        <li><a href="<%= new_rate_path %>">New Rate</a></li>
+      </ul>
+    </li>
+
+    <!-- Billing & Sales -->
+    <li class="nav-item" role="none">
+      <a role="menuitem" href="<%= orders_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Sales ▾</a>
+      <ul class="submenu" role="menu">
+        <li><a href="<%= orders_path %>">Existing Orders</a></li>
+        <li><a href="<%= new_order_path %>">New Order</a></li>
+        <li><a href="<%= pos_path %>">POS Terminal</a></li>
+  <li class="submenu-divider" aria-hidden="true">—</li>
+  <li><a href="<%= returns_path %>">Returns & Exchanges</a></li>
+  <li><a href="<%= new_return_path %>">New Return / Exchange</a></li>
+      </ul>
+    </li>
+
+    <!-- Ledger & Accounting -->
+    <li class="nav-item" role="none">
+      <a role="menuitem" href="<%= ledgers_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Ledger ▾</a>
+      <ul class="submenu" role="menu">
+        <li><a href="<%= ledgers_path %>">Existing Journals</a></li>
+        <li><a href="<%= new_ledger_path %>">New Journal Entry</a></li>
+      </ul>
+    </li>
+
+    <!-- Profit & Loss -->
+    <li class="nav-item" role="none">
+      <a role="menuitem" href="<%= profit_losses_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Profit / Loss ▾</a>
+      <ul class="submenu" role="menu">
+        <li><a href="<%= profit_losses_path %>">Existing Reports</a></li>
+        <li><a href="<%= new_profit_loss_path %>">New Report</a></li>
+      </ul>
+    </li>
+
+    <!-- Reports & Analytics -->
+    <li class="nav-item" role="none">
+      <a role="menuitem" href="<%= reports_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Reports ▾</a>
+      <ul class="submenu" role="menu">
+        <li><a href="<%= reports_path %>">All Reports</a></li>
+        <li><a href="<%= new_report_path %>">New Report</a></li>
+  <li class="submenu-divider" aria-hidden="true">—</li>
+  <li><a href="<%= sales_log_reports_path %>">Sales Log</a></li>
+      </ul>
+    </li>
+
+    <!-- Security & Audit -->
+    <li class="nav-item right" role="none">
+      <a role="menuitem" href="<%= security_index_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Security ▾</a>
+      <ul class="submenu" role="menu">
+        <li><a href="<%= security_index_path %>">Users & Audit</a></li>
+        <li><a href="<%= new_security_path %>">New User / Role</a></li>
+      </ul>
+    </li>
+  </ul>
+  <div style="margin-left:12px">
+    <%# Use Devise helpers when available, otherwise fall back to common Devise paths */ %>
+    <% sign_in_path = respond_to?(:new_user_session_path) ? new_user_session_path : '/users/sign_in' %>
+    <% sign_out_path = respond_to?(:destroy_user_session_path) ? destroy_user_session_path : '/users/sign_out' %>
+    <% if respond_to?(:user_signed_in?) && user_signed_in? %>
+      Signed in as <strong><%= current_user.email %></strong>
+      <%= link_to 'Sign out', sign_out_path, method: :delete, style: 'margin-left:12px; color:#f3f4f6' %>
+    <% else %>
+      <%= link_to 'Sign in', sign_in_path, style: 'margin-left:12px; color:#f3f4f6' %>
+    <% end %>
+  </div>
+</nav>

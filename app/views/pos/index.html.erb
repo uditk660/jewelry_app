@@ -1,0 +1,160 @@
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>POS Sales</h1>
+      <p class="lead">Select one or more items, adjust quantities, apply discounts and charges. Totals calculate below.</p>
+    </div>
+    <div>
+      <%= link_to 'View Orders', orders_path, class: 'btn' %>
+    </div>
+  </div>
+
+  <div class="card">
+    <form id="pos-form" action="<%= pos_create_order_path %>" method="post">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+
+      <table>
+        <thead>
+          <tr><th>Item</th><th>Price</th><th>Qty</th><th>Weight (g)</th><th>Line Total</th><th></th></tr>
+        </thead>
+        <tbody id="pos-items">
+        </tbody>
+      </table>
+
+      <p><button type="button" id="add-row" class="btn">+ Add Item</button></p>
+
+      <div class="form-row">
+        <div>
+          <label>Discount (₹)</label>
+          <input type="number" step="0.01" name="discount" id="discount" value="0">
+        </div>
+        <div>
+          <label>Charges (₹)</label>
+          <input type="number" step="0.01" name="charges" id="charges" value="0">
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-top:12px">
+        <div>
+          <label>Gross Weight (g)</label>
+          <input type="number" step="0.01" name="gross_weight" id="gross_weight" value="0">
+        </div>
+        <div>
+          <label>Net Weight (g)</label>
+          <input type="number" step="0.01" name="net_weight" id="net_weight" value="0">
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Tax Rates</label>
+        <div class="form-row">
+          <div>
+            <label>CGST %</label>
+            <input type="number" step="0.01" id="cgst_rate" value="0">
+          </div>
+          <div>
+            <label>IGST %</label>
+            <input type="number" step="0.01" id="igst_rate" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <table>
+          <tbody>
+            <tr><td>Subtotal</td><td id="subtotal">₹0.00</td></tr>
+            <tr><td>Discount</td><td id="discount-display">₹0.00</td></tr>
+            <tr><td>Charges</td><td id="charges-display">₹0.00</td></tr>
+            <tr><td>Taxable</td><td id="taxable">₹0.00</td></tr>
+            <tr><td>CGST</td><td id="cgst">₹0.00</td></tr>
+            <tr><td>IGST</td><td id="igst">₹0.00</td></tr>
+            <tr><td><strong>Total</strong></td><td id="grand-total"><strong>₹0.00</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:14px">
+        <button type="submit" class="btn btn-primary">Create Order</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const items = <%= raw(@items.select{ |i| (i.quantity.present? && i.quantity > 0) || i.metal.present? }.map{|i| {id: i.id, name: i.name, price: i.price}}.to_json) %>;
+  const tbody = document.getElementById('pos-items');
+
+  function money(v){ return '\u20B9' + v.toFixed(2); }
+
+  function addRow(){
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>
+        <select name="items[][jewelry_item_id]" class="item-select">
+          ${items.map(it => `<option value="${it.id}">${it.name}</option>`).join('')}
+        </select>
+      </td>
+      <td class="price-cell">${money(items[0].price)}</td>
+      <td><input type="number" name="items[][quantity]" value="1" min="1" class="qty" style="width:72px"></td>
+      <td><input type="number" name="items[][weight]" value="0" step="0.01" style="width:90px"></td>
+      <td class="line-total">${money(items[0].price)}</td>
+      <td><button type="button" class="btn remove">Remove</button></td>
+    `;
+    tbody.appendChild(row);
+    attachRowListeners(row);
+    recalc();
+  }
+
+  function attachRowListeners(row){
+    const select = row.querySelector('.item-select');
+    const qty = row.querySelector('.qty');
+    const priceCell = row.querySelector('.price-cell');
+    const lineTotal = row.querySelector('.line-total');
+    select.addEventListener('change', function(){
+      const it = items.find(x => x.id == select.value);
+      priceCell.textContent = money(it.price);
+      lineTotal.textContent = money(it.price * parseInt(qty.value || 1));
+      recalc();
+    });
+    qty.addEventListener('input', function(){
+      const it = items.find(x => x.id == select.value);
+      lineTotal.textContent = money(it.price * parseInt(qty.value || 0));
+      recalc();
+    });
+    row.querySelector('.remove').addEventListener('click', function(){ row.remove(); recalc(); });
+  }
+
+  document.getElementById('add-row').addEventListener('click', addRow);
+  // start with one row
+  addRow();
+
+  function recalc(){
+    let subtotal = 0;
+    tbody.querySelectorAll('tr').forEach(r => {
+      const select = r.querySelector('.item-select');
+      const qty = parseInt(r.querySelector('.qty').value || 0);
+      const it = items.find(x => x.id == select.value);
+      subtotal += it.price * qty;
+    });
+    const discount = parseFloat(document.getElementById('discount').value || 0);
+    const charges = parseFloat(document.getElementById('charges').value || 0);
+    const taxable = subtotal - discount + charges;
+    const cgstRate = parseFloat(document.getElementById('cgst_rate').value || 0);
+    const igstRate = parseFloat(document.getElementById('igst_rate').value || 0);
+    const cgst = taxable * (cgstRate/100);
+    const igst = taxable * (igstRate/100);
+    document.getElementById('subtotal').textContent = money(subtotal);
+    document.getElementById('discount-display').textContent = money(discount);
+    document.getElementById('charges-display').textContent = money(charges);
+    document.getElementById('taxable').textContent = money(taxable);
+    document.getElementById('cgst').textContent = money(cgst);
+    document.getElementById('igst').textContent = money(igst);
+    document.getElementById('grand-total').textContent = money(taxable + cgst + igst);
+  }
+
+  ['discount','charges','cgst_rate','igst_rate'].forEach(id => document.getElementById(id).addEventListener('input', recalc));
+  tbody.addEventListener('input', recalc);
+</script>
+<h1>POS Terminal</h1>
+<p>Quick access to create an order at the point of sale. Choose items and quantities, then create the order.</p>
+<%= render 'orders/new' %>

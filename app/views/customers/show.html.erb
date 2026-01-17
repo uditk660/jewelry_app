@@ -1,0 +1,316 @@
+<style>
+/* ===============================
+   CUSTOMER SHOW – PREMIUM UI
+================================ */
+
+:root {
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --border: #e6edf5;
+  --muted: #6b7280;
+  --text: #111827;
+  --primary: #2563eb;
+  --accent: #eef4ff;
+  --glass: linear-gradient(135deg, #eef4ff, #f9fbff);
+}
+
+body {
+  background: var(--bg);
+}
+
+/* PAGE */
+.cust-show {
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+/* CARD */
+.cust-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.06);
+}
+
+/* GRID */
+.cust-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 26px;
+  align-items: start;
+}
+
+/* LEFT COLUMN */
+.left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-right: 10px;
+  /* removed middle vertical separator so Recent Orders sit flush on the left */
+  border-right: none;
+}
+
+/* AVATAR */
+.cust-avatar {
+  width: 86px;
+  height: 86px;
+  border-radius: 16px;
+  background: var(--glass);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  box-shadow: inset 0 0 0 1px #dbe7ff;
+}
+
+/* NAME */
+.cust-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+/* CONTACT */
+.cust-contact {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* ACTIONS */
+.action-row {
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #f9fbff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+
+.btn:hover {
+  background: var(--accent);
+}
+
+.btn.primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* DETAILS */
+.detail-section {
+  padding-top: 6px;
+}
+
+.detail-row {
+  padding: 12px 0;
+  border-bottom: 1px dashed #eef2f7;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.val {
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ORDERS */
+.orders-panel {
+  margin-top: 20px;
+}
+
+.orders-panel .label {
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* TABLE */
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 10px;
+  table-layout: auto;
+  overflow: visible; /* allow long invoice numbers to be visible */
+}
+
+.orders-table th,
+.orders-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.orders-table th {
+  background: #f9fbff;
+  font-weight: 600;
+  color: #374151;
+  text-align: left;
+}
+
+.orders-table tr:hover td {
+  background: #fafcff;
+}
+
+.orders-table td.num {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* Ensure invoice and date columns don't wrap or get clipped */
+.orders-table th.invoice,
+.orders-table td.invoice,
+.orders-table th.date,
+.orders-table td.date {
+  white-space: nowrap;
+}
+
+/* Make sure invoice text is never truncated with ellipsis */
+.orders-table th.invoice,
+.orders-table td.invoice {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  max-width: none !important;
+}
+
+/* Anchor inside invoice cell should not wrap or be clipped */
+.orders-table td.invoice a {
+  white-space: nowrap;
+  display: inline-block;
+  overflow: visible;
+}
+
+/* Shift date column ~2 inches to the right and push total further right */
+.orders-table th.date,
+.orders-table td.date {
+  padding-left: 2in; /* user requested: shift date 2 inches */
+}
+
+.orders-table th.num,
+.orders-table td.num {
+  width: 140px; /* reserve space on the right for totals */
+  padding-right: 8px;
+}
+
+/* MUTED */
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 960px) {
+  .cust-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .left-col {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .cust-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 26px;
+  }
+
+  .cust-name {
+    font-size: 1.1rem;
+  }
+}
+</style>
+
+<div class="cust-show">
+  <div class="cust-card">
+    <div class="cust-grid">
+      <div class="left-col">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="cust-avatar">👤</div>
+          <div>
+            <div class="cust-name"><%= [@customer.first_name, @customer.last_name].reject(&:blank?).join(' ') %></div>
+            <div class="cust-contact"><%= @customer.email.presence || '—' %> • <%= @customer.phone.presence || '—' %></div>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <%= link_to 'Edit', '#', class: 'btn' %>
+          <%= link_to 'Back', customers_path, class: 'btn' %>
+        </div>
+
+        <div class="detail-section">
+          <div class="label">Joined</div>
+          <div class="val"><%= @customer.created_at ? @customer.created_at.strftime('%b %d, %Y') : '—' %></div>
+        </div>
+
+        <div class="orders-panel">
+          <div class="label">Recent Orders</div>
+          <div class="orders-list">
+            <% if @recent_orders.any? %>
+              <table class="orders-table">
+                <thead>
+                  <tr><th class="invoice">Invoice</th><th class="date">Date</th><th class="num">Total</th></tr>
+                </thead>
+                <tbody>
+                  <% @recent_orders.each do |o| %>
+                    <tr>
+                      <td class="invoice"><%= link_to o.invoice_number, invoice_order_path(o) %></td>
+                      <td class="date muted"><%= o.sale_date || o.created_at.to_date %></td>
+                      <td class="num">₹<%= '%.2f' % o.total_with_taxes(cgst_rate: o.cgst_rate.to_f, igst_rate: o.igst_rate.to_f) %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            <% else %>
+              <div class="muted">No recent orders</div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="detail-section">
+          <div class="detail-row">
+            <div class="label">Address</div>
+            <div class="val"><%= @customer.address.present? ? simple_format(h(@customer.address)) : '—' %></div>
+          </div>
+
+          <div class="detail-row">
+            <div class="label">Aadhaar / PAN</div>
+            <div class="val"><%= @customer.aadhaar_or_pan.presence || '—' %></div>
+          </div>
+
+          <div class="detail-row">
+            <div class="label">GST / Tax Number</div>
+            <div class="val"><%= @customer.gst_number.presence || '—' %></div>
+          </div>
+        </div>
+
+  <!-- Recent orders moved to the left column for left-most placement -->
+      </div>
+    </div>
+  </div>
+</div>

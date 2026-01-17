@@ -1,0 +1,7 @@
+<h1>Purities</h1>
+<p><a href="<%= new_purity_path %>">New Purity</a></p>
+<ul>
+  <% @purities.each do |p| %>
+    <li><%= p.name %> - <%= p.purity_percent %>% (<%= p.metal.name if p.metal %>)</li>
+  <% end %>
+</ul>

@@ -1,0 +1,18 @@
+<h1>New Inventory Item</h1>
+<%= form_for @inventory_item, url: inventory_items_path do |f| %>
+  <div>
+    <%= f.label :jewelry_item_id, 'Item' %><br>
+    <%= f.collection_select :jewelry_item_id, @items, :id, :name %>
+  </div>
+  <div>
+    <%= f.label :available_grams %><br>
+    <%= f.number_field :available_grams %>
+  </div>
+  <div>
+    <%= f.label :location %><br>
+    <%= f.text_field :location %>
+  </div>
+  <div>
+    <%= f.submit 'Create' %>
+  </div>
+<% end %>
