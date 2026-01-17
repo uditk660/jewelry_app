@@ -29,8 +29,8 @@ Rails.application.routes.draw do
   get 'reports/sales_log', to: 'reports#sales_log', as: :sales_log_reports
   get 'security', to: 'security#index', as: :security_index
   get 'security/new', to: 'security#new', as: :new_security
-  resources :metals, only: [:index, :new, :create]
-  resources :purities, only: [:index, :new, :create]
+  resources :metals, only: [:index, :new, :create, :show, :destroy]
+  resources :purities, only: [:index, :new, :create, :show]
     resources :customers, only: [:index, :new, :create, :show]
   resources :jewellery_categories, only: [:index, :new, :create]
   resources :stores, only: [:index, :new, :create]

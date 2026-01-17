@@ -73,7 +73,16 @@
               <% end %>
             </td>
             <td><%= item.weight_grams.to_f %></td>
-            <td class="price-col"><span class="price-badge"> <%= "\u20B9#{'%.2f' % item.price.to_f}" %> </span></td>
+            <td class="price-col">
+              <span class="price-badge"> <%= "\u20B9#{'%.2f' % item.computed_price}" %> </span>
+              <% if item.effective_price_per_gram.present? %>
+                <% if item.purity && item.purity.updated_price.present? %>
+                  <div class="small muted">(source: <%= item.purity.name %> @ <%= "\u20B9#{'%.2f' % item.effective_price_per_gram}" %> /g)</div>
+                <% else %>
+                  <div class="small muted">(source: metal stock @ <%= "\u20B9#{'%.2f' % item.effective_price_per_gram}" %> /g)</div>
+                <% end %>
+              <% end %>
+            </td>
       <td class="text-center">
         <% if item.quantity.present? && item.quantity > 0 %>
           <span class="available-badge"> <%= item.quantity.to_i %> pcs</span>

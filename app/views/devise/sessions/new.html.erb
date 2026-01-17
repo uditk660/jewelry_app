@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sign in</title>
+  <style>
+    /* Scoped modern sign-in styles - do not affect other pages */
+    .auth-viewport{display:flex;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(180deg,#f7fbff 0%, #eef7ff 100%);padding:32px}
+    .auth-card{width:420px;background:#ffffff;border-radius:12px;box-shadow:0 8px 30px rgba(16,24,40,0.08);overflow:hidden;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    .auth-header{padding:28px 28px 12px 28px;border-bottom:1px solid #f1f5f9}
+    .brand{display:flex;gap:12px;align-items:center}
+    .brand-logo{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#b30000,#003f8f);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px}
+    .brand-name{font-size:18px;color:#0f172a;font-weight:700}
+    .brand-sub{color:#475569;font-size:13px;margin-top:4px}
+    .auth-body{padding:20px 28px 28px 28px}
+    .form-group{margin-bottom:12px}
+    label{display:block;font-size:13px;color:#0f172a;margin-bottom:6px}
+    input[type=text],input[type=password],input[type=email]{width:100%;padding:10px 12px;border:1px solid #e6eef6;border-radius:8px;background:#fbfdff;font-size:14px}
+    .actions{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+    .btn-primary{background:linear-gradient(90deg,#003f8f,#b30000);color:#fff;padding:10px 14px;border-radius:8px;border:none;cursor:pointer;font-weight:600}
+    .muted{color:#64748b;font-size:13px}
+    .help-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+    .footer-note{padding:14px 28px;border-top:1px dashed #eef2ff;background:#fbfdff;color:#475569;font-size:13px}
+    .error-box{background:#fff1f2;border:1px solid #fecaca;color:#9f1239;padding:10px;border-radius:8px;margin-bottom:10px}
+    @media (max-width:480px){.auth-card{width:100%;border-radius:8px;padding:0;margin:0}}
+  </style>
+</head>
+<body>
+  <main class="auth-viewport">
+    <section class="auth-card" role="main" aria-labelledby="signin-heading">
+      <div class="auth-header">
+        <div class="brand">
+          <div class="brand-logo">RA</div>
+          <div>
+            <div class="brand-name">Rajesh Alankar Mandir</div>
+            <div class="brand-sub">Secure access to your store dashboard</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-body">
+        <h1 id="signin-heading" style="margin:0 0 12px 0;font-size:16px;color:#0f172a">Sign in to your account</h1>
+        <p class="muted" style="margin:0 0 14px 0">Enter your credentials to continue.</p>
+
+        <% if flash[:alert].present? %>
+          <div class="error-box"><%= flash[:alert] %></div>
+        <% end %>
+
+        <%= form_for(resource, as: resource_name, url: session_path(resource_name)) do |f| %>
+          <div class="form-group">
+            <%= f.label :email, 'Email' %>
+            <%= f.email_field :email, autofocus: true, autocomplete: "email" %>
+          </div>
+
+          <div class="form-group">
+            <%= f.label :password, 'Password' %>
+            <%= f.password_field :password, autocomplete: "current-password" %>
+          </div>
+
+          <div class="help-row">
+            <div class="muted"><%= link_to 'Forgot password?', new_password_path(resource_name) %></div>
+            <div>
+              <%= f.submit 'Sign in', class: 'btn-primary' %>
+            </div>
+          </div>
+        <% end %>
+
+        <div class="footer-note">If you don't have an account, contact your system administrator to create one.</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

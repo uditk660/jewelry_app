@@ -27,6 +27,17 @@
 
           <div class="form-row" style="margin-top:10px">
             <div style="flex:1">
+              <%= f.label :metal_id, 'Metal' %>
+              <%= f.collection_select :metal_id, (@metals || []), :id, :name, include_blank: '— Select metal —', class: 'form-control' %>
+            </div>
+            <div style="width:220px; margin-left:12px">
+              <%= f.label :purity_id, 'Purity' %>
+              <%= f.collection_select :purity_id, (@purities || []), :id, :name, include_blank: '— Select purity —', class: 'form-control' %>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top:10px">
+            <div style="flex:1">
               <%= f.label :price_cents, 'Price (₹) — enter rupees (decimal)' %>
               <%= text_field_tag 'price_rupees', (@item.price.present? ? ('%.2f' % @item.price) : ''), class: 'form-control', id: 'price_rupees', placeholder: 'e.g. 1234.50' %>
               <%= f.hidden_field :price_cents, id: 'price_cents_hidden' %>

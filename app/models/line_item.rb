@@ -17,4 +17,27 @@ class LineItem < ActiveRecord::Base
   def total
     total_cents.to_f / 100.0
   end
+
+  # Price per gram to be used for calculations. Prefer jewelry_item.effective_price_per_gram
+  # (set by JewelryItem model) and fall back to stored price_cents.
+  def per_gram_price
+    if jewelry_item && jewelry_item.respond_to?(:effective_price_per_gram) && jewelry_item.effective_price_per_gram.present?
+      jewelry_item.effective_price_per_gram.to_f
+    else
+      (price_cents || 0).to_f / 100.0
+    end
+  end
+
+  # Compute the line amount as: per_gram_price * net_weight * quantity + making_charge
+  def line_amount
+    per_gram = per_gram_price || 0.0
+    net = self.net_weight.to_f || 0.0
+    qty = self.quantity.to_i || 0
+    making = self.making_charge.to_f || 0.0
+    (per_gram * net * qty) + making
+  end
+
+  def line_amount_cents
+    (line_amount * 100).to_i
+  end
 end
