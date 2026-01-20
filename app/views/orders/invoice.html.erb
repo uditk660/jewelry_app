@@ -12,9 +12,8 @@
       font-family: Arial, Helvetica, sans-serif;
     }
 
-    /* ===== A4 LAYOUT FIX ===== */
     .invoice-box {
-      min-height: calc(297mm - 24mm); /* A4 height minus margins */
+      min-height: calc(297mm - 24mm);
       display: flex;
       flex-direction: column;
     }
@@ -23,14 +22,12 @@
       flex: 1;
     }
 
-    /* ===== PRINT ===== */
     @media print {
       @page {
         size: A4;
         margin: 0;
       }
 
-      /* remove outer invoice border in print */
       .invoice-box {
         border: none !important;
       }
@@ -55,12 +52,12 @@
         width: 100%;
       }
 
-      table, tr, td, th {
-        page-break-inside: avoid !important;
-      }
-
       .no-print {
         display: none !important;
+      }
+
+      table, tr, td, th {
+        page-break-inside: avoid !important;
       }
     }
   </style>
@@ -68,255 +65,227 @@
 
 <body>
 
-<!-- ===== PRINT BUTTON ===== -->
-<div class="no-print" style="width:900px;margin:12px auto 0;text-align:right">
+<!-- PRINT BUTTON -->
+<div class="no-print" style="width:960px;margin:12px auto 0;text-align:right">
   <button onclick="window.print()"
-    style="padding:8px 18px;border:1px solid #000;background:#fff;cursor:pointer;font-size:13px">
+    style="padding:8px 20px;border:1px solid #000;background:#fff;cursor:pointer;font-size:13px">
     Print Invoice
   </button>
 </div>
 
 <div id="print-area">
 
-  <div class="invoice-box"
-       style="width:900px;margin:12px auto;background:#fff;border:1.5px solid #000;padding:18px 12px;font-size:13px;color:#000">
+<div class="invoice-box"
+     style="width:960px;margin:12px auto;background:#fff;border:1.5px solid #000;padding:20px 14px;font-size:13px;color:#000">
 
-    <div class="invoice-body">
+<div class="invoice-body">
 
-      <!-- ================= HEADER ================= -->
-      <div style="display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;border-bottom:1.5px solid #000;padding-bottom:10px">
+<!-- ================= HEADER ================= -->
+<div style="display:grid;
+            grid-template-columns:220px 1fr 160px;
+            align-items:center;
+            border-bottom:1.8px solid #000;
+            padding-bottom:12px">
 
-        <div style="font-size:12px;line-height:1.6">
-          <strong>GSTIN:</strong><br>
-          10CMOPKR7200K1ZV
-        </div>
+  <!-- GST -->
+  <div style="font-size:12px;line-height:1.7">
+    <strong>GSTIN:</strong><br>
+    10CMOPKR7200K1ZV
+  </div>
 
-        <div style="text-align:center">
-          <% app_name = "Rajesh Alankar Mandir" %>
-          <div style="font-size:22px;font-weight:700;color:#b30000;letter-spacing:1px">
-            <%= app_name %>
-          </div>
-          <div style="font-size:13px;font-weight:600;color:#003f8f">
-            Sadar Bazar, Jagdishpur, Bhojpur
-          </div>
-          <div style="font-size:11.5px;margin-top:2px">
-            Phone: +91-99999-00000 | Email: sales@example.com
-          </div>
-        </div>
-
-        <div style="text-align:right;font-size:12px;line-height:1.6">
-          BIS Certified<br>
-          100% Hallmarked Jewellery
-        </div>
-      </div>
-
-      <!-- ================= TITLE ================= -->
-      <div style="text-align:center;font-weight:700;font-size:15px;margin:10px 0;text-decoration:underline">
-        TAX INVOICE
-      </div>
-
-      <!-- ================= BILL / QR / INVOICE INFO ================= -->
-      <div style="display:grid;grid-template-columns:1fr 140px 1fr;gap:10px;align-items:center;margin-bottom:12px;font-size:12.5px">
-
-        <!-- Bill To -->
-        <div style="line-height:1.7">
-          <strong>Bill To:</strong><br>
-          <% if @order.customer.present? %>
-            <strong><%= [@order.customer.first_name, @order.customer.last_name].compact.join(' ') %></strong><br>
-            <% if @order.customer.address.present? %>
-              <%= @order.customer.address %><br>
-            <% end %>
-            <% if @order.customer.phone.present? %>
-              Phone: <%= @order.customer.phone %><br>
-            <% end %>
-            <% if @order.customer.email.present? %>
-              Email: <%= @order.customer.email %>
-            <% end %>
-          <% else %>
-            Walk-in Customer
-          <% end %>
-        </div>
-
-        <!-- QR -->
-        <div style="text-align:center">
-          <% begin %>
-            <% qr_text = request.original_url rescue order_url(@order) %>
-            <% q = RQRCode::QRCode.new(qr_text) %>
-            <div style="display:inline-block;padding:4px;border:1px solid #000">
-              <%= raw q.as_svg(module_size: 2, standalone: true) %>
-            </div>
-          <% rescue %>
-          <% end %>
-        </div>
-
-        <!-- Invoice Info -->
-        <div style="line-height:1.7;text-align:right">
-          <strong>Invoice No:</strong> <%= @order.invoice_number || 'N/A' %><br>
-          <strong>Date:</strong> <%= (@order.sale_date || @order.created_at.to_date).strftime('%d %b %Y') %><br>
-          <strong>Order #:</strong> <%= @order.id %><br>
-          <strong>Status:</strong> <%= @order.status.capitalize %>
-        </div>
-
-      </div>
-
-      <!-- ================= ITEMS TABLE ================= -->
-      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-        <thead>
-          <tr style="background:#f3f3f3">
-            <th style="border:1px solid #000;width:36px">Sr</th>
-            <th style="border:1px solid #000;width:150px;text-align:left">Item</th>
-            <th style="border:1px solid #000;width:80px">HUID</th>
-            <th style="border:1px solid #000;width:60px">HSN</th>
-            <th style="border:1px solid #000;width:48px">Qty</th>
-            <th style="border:1px solid #000;width:80px">Gross (g)</th>
-            <th style="border:1px solid #000;width:80px">Net (g)</th>
-            <th style="border:1px solid #000;width:80px">Rate</th>
-            <th style="border:1px solid #000;width:110px">Making</th>
-            <th style="border:1px solid #000;width:95px">Total</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          <% subtotal_calc = 0.0 %>
-          <% @order.line_items.each_with_index do |li, idx| %>
-              <% per_gram = if li.jewelry_item && li.jewelry_item.respond_to?(:effective_price_per_gram)
-                              li.jewelry_item.effective_price_per_gram.to_f
-                            else
-                              (li.price_cents || 0).to_f / 100.0
-                            end %>
-              <% net_w = li.net_weight.to_f %>
-              <% qty = li.quantity.to_i %>
-              <% per_line = (per_gram * net_w * qty) %>
-              <% line_total = per_line + li.making_charge.to_f %>
-              <% subtotal_calc += line_total %>
-              <tr>
-                <td style="border:1px solid #000;text-align:center"><%= idx + 1 %></td>
-                <td style="border:1px solid #000;padding-left:6px">
-                  <strong><%= li.jewelry_item.try(:name) || "Item ##{li.jewelry_item_id}" %></strong>
-                </td>
-                <td style="border:1px solid #000;text-align:center">-</td>
-                <td style="border:1px solid #000;text-align:center"><%= li.hsn || '-' %></td>
-                <td style="border:1px solid #000;text-align:center"><%= qty %></td>
-                <td style="border:1px solid #000;text-align:center"><%= li.gross_weight %></td>
-                <td style="border:1px solid #000;text-align:center"><%= '%.2f' % net_w %></td>
-                <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % per_line %></td>
-                <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % li.making_charge %></td>
-                <td style="border:1px solid #000;text-align:right;padding-right:6px;font-weight:700">₹<%= '%.2f' % line_total %></td>
-              </tr>
-            <% end %>
-        </tbody>
-      </table>
-
-
-      <!-- ================= SUMMARY ================= -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;font-size:12.5px">
-
-        <!-- Payment Details -->
-        <div style="line-height:1.8">
-          <strong>Payment Detail:</strong><br>
-          <% if @order.status == 'paid' %>
-            Paid
-          <% else %>
-            Pending
-          <% end %>
-        </div>
-
-        <!-- Amount Summary -->
-        <div>
-          <table style="width:100%;border-collapse:collapse">
-            <% gross_total = subtotal_calc %>
-            <% taxable_calc = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
-            <% cgst_amt = taxable_calc * (@order.cgst_rate.to_f / 100.0) %>
-            <% igst_amt = taxable_calc * (@order.igst_rate.to_f / 100.0) %>
-            <% total = taxable_calc + cgst_amt + igst_amt %>
-            <% rounded = total.round %>
-
-            <tr>
-              <td style="border:1px solid #000;padding:4px">Gross Total</td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">
-                ₹<%= '%.2f' % gross_total %>
-              </td>
-            </tr>
-
-            <tr>
-              <td style="border:1px solid #000;padding:4px">Taxable Amount</td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">
-                ₹<%= '%.2f' % taxable_calc %>
-              </td>
-            </tr>
-
-            <tr>
-              <td style="border:1px solid #000;padding:4px">
-                CGST <%= @order.cgst_rate %>%
-              </td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">
-                ₹<%= '%.2f' % cgst_amt %>
-              </td>
-            </tr>
-
-            <tr>
-              <td style="border:1px solid #000;padding:4px">
-                IGST <%= @order.igst_rate %>%
-              </td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">
-                ₹<%= '%.2f' % igst_amt %>
-              </td>
-            </tr>
-
-            <tr>
-              <td style="border:1px solid #000;padding:4px"><strong>Total</strong></td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">
-                ₹<%= '%.2f' % total %>
-              </td>
-            </tr>
-
-            <tr>
-              <td style="border:1px solid #000;padding:4px">Round Off</td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">
-                ₹<%= '%.2f' % (rounded - total) %>
-              </td>
-            </tr>
-
-            <tr>
-              <td style="border:1px solid #000;padding:4px">
-                <strong>Net Amount</strong>
-              </td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">
-                <strong>₹<%= '%.2f' % rounded %></strong>
-              </td>
-            </tr>
-          </table>
-        </div>
-      </div>    
-
-    </div> <!-- invoice-body -->
-
-    <!-- ================= FOOTER (LOCKED TO BOTTOM) ================= -->
-    <div style="display:flex;justify-content:space-between;margin-top:30px;font-size:12px">
-      <div>
-        Customer Signature
-        <div style="margin-top:30px;border-top:1px solid #000;width:200px"></div>
-      </div>
-      <div style="text-align:right">
-        For <%= app_name %>
-        <div style="margin-top:30px;border-top:1px solid #000;width:200px;margin-left:auto"></div>
-        Authorized Signatory
-      </div>
+  <!-- CENTER BRAND -->
+  <div style="text-align:center">
+    <% app_name = "Rajesh Alankar Mandir" %>
+    <div style="font-size:28px;font-weight:900;color:#b30000;letter-spacing:1.2px">
+      <%= app_name %>
     </div>
+    <div style="font-size:14px;font-weight:700;color:#003f8f;margin-top:2px">
+      Sadar Bazar, Jagdishpur, Bhojpur
+    </div>
+    <div style="font-size:12px;margin-top:3px">
+      Phone: +91-99999-00000 | Email: sales@example.com
+    </div>
+  </div>
 
-    <!-- ================= TERMS ================= -->
-<div style="margin-top:14px;font-size:11.5px">
-  <strong>Terms & Conditions:</strong>
-  <ol style="margin:6px 0 0 18px;padding:0">
-    <li>All disputes are subject to jurisdiction.</li>
-    <li>Rate once paid cannot be changed.</li>
-    <li>Goods sold can be exchanged within 7 days.</li>
-    <li>Making charges are non-refundable.</li>
-    <li>GST once paid will not be refunded.</li>
-  </ol>
+  <!-- QR + CERT -->
+  <div style="text-align:right;font-size:12px">
+    <% begin %>
+      <% qr_text = request.original_url rescue order_url(@order) %>
+      <% q = RQRCode::QRCode.new(qr_text) %>
+      <div style="display:inline-block;padding:4px;border:1px solid #000;margin-bottom:6px">
+        <%= raw q.as_svg(module_size: 2, standalone: true) %>
+      </div>
+    <% rescue %>
+    <% end %>
+    <div style="line-height:1.4">
+      BIS Certified<br>
+      100% Hallmarked
+    </div>
+  </div>
 </div>
 
+<!-- TITLE -->
+<div style="text-align:center;font-weight:800;font-size:16px;margin:12px 0;text-decoration:underline">
+  TAX INVOICE
+</div>
+
+<!-- BILL + INVOICE INFO -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px;font-size:12.5px">
+
+  <div style="line-height:1.7">
+    <strong>Bill To:</strong><br>
+    <% if @order.customer.present? %>
+      <strong><%= [@order.customer.first_name, @order.customer.last_name].join(' ') %></strong><br>
+      <%= @order.customer.address %><br>
+      Phone: <%= @order.customer.phone %>
+    <% else %>
+      Walk-in Customer
+    <% end %>
   </div>
+
+  <div style="line-height:1.7;text-align:right">
+    <strong>Invoice No:</strong> <%= @order.invoice_number %><br>
+    <strong>Date:</strong> <%= (@order.sale_date || Date.today).strftime('%d %b %Y') %><br>
+    <strong>Order #:</strong> <%= @order.id %><br>
+    <strong>Status:</strong> <%= @order.status.capitalize %>
+  </div>
+</div>
+
+<!-- ITEMS TABLE -->
+<table style="width:100%;border-collapse:collapse;table-layout:fixed">
+<thead>
+<tr style="background:#f3f3f3">
+  <th style="border:1px solid #000;width:34px">Sr</th>
+  <th style="border:1px solid #000;width:170px;text-align:left">Item</th>
+  <th style="border:1px solid #000;width:70px">HUID</th>
+  <th style="border:1px solid #000;width:60px">HSN</th>
+  <th style="border:1px solid #000;width:45px">Qty</th>
+  <th style="border:1px solid #000;width:75px">Gross</th>
+  <th style="border:1px solid #000;width:75px">Net</th>
+  <th style="border:1px solid #000;width:90px">Rate</th>
+  <th style="border:1px solid #000;width:90px">Making</th>
+  <th style="border:1px solid #000;width:95px">Total</th>
+</tr>
+</thead>
+
+<tbody>
+<% subtotal = 0 %>
+<% @order.line_items.each_with_index do |li, i| %>
+  <%# prefer model helper line_amount (per_gram * net * qty + making), fall back to previous formula if absent %>
+  <% line = if li.respond_to?(:line_amount)
+               li.line_amount.to_f
+             else
+               (li.net_weight.to_f * li.quantity.to_i * (li.price_cents.to_f / 100.0)) + li.making_charge.to_f
+             end %>
+  <% subtotal += line %>
+<tr>
+  <td style="border:1px solid #000;text-align:center"><%= i+1 %></td>
+  <td style="border:1px solid #000;padding-left:6px"><strong><%= li.jewelry_item&.name %></strong></td>
+  <td style="border:1px solid #000;text-align:center">-</td>
+  <td style="border:1px solid #000;text-align:center"><%= li.hsn %></td>
+  <td style="border:1px solid #000;text-align:center"><%= li.quantity %></td>
+  <td style="border:1px solid #000;text-align:center"><%= li.gross_weight %></td>
+  <td style="border:1px solid #000;text-align:center"><%= li.net_weight %></td>
+  <%# show rate as per-gram price (model exposes per_gram_price) %>
+  <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % (li.respond_to?(:per_gram_price) ? li.per_gram_price.to_f : (li.price_cents.to_f/100.0)) %></td>
+  <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % li.making_charge %></td>
+  <td style="border:1px solid #000;text-align:right;padding-right:6px;font-weight:700">₹<%= '%.2f' % line %></td>
+</tr>
+<% end %>
+</tbody>
+</table>
+
+</div>
+
+<!-- ================= SUMMARY ================= -->
+<div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-top:16px;font-size:12.5px">
+
+  <!-- Left empty / notes -->
+  <div></div>
+
+  <!-- Amount Summary -->
+  <div>
+    <table style="width:100%;border-collapse:collapse">
+      <% gross_total = subtotal %>
+      <% taxable_amount = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
+      <% cgst_amt = taxable_amount * (@order.cgst_rate.to_f / 100.0) %>
+      <% igst_amt = taxable_amount * (@order.igst_rate.to_f / 100.0) %>
+      <% total = taxable_amount + cgst_amt + igst_amt %>
+      <% rounded_total = total.round(0) %>
+
+      <tr>
+        <td style="border:1px solid #000;padding:6px">Gross Total</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">
+          ₹<%= '%.2f' % gross_total %>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="border:1px solid #000;padding:6px">Taxable Amount</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">
+          ₹<%= '%.2f' % taxable_amount %>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="border:1px solid #000;padding:6px">
+          CGST <%= @order.cgst_rate.to_f %>%
+        </td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">
+          ₹<%= '%.2f' % cgst_amt %>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="border:1px solid #000;padding:6px">
+          IGST <%= @order.igst_rate.to_f %>%
+        </td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">
+          ₹<%= '%.2f' % igst_amt %>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="border:1px solid #000;padding:6px;font-weight:700">Total</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right;font-weight:700">
+          ₹<%= '%.2f' % total %>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="border:1px solid #000;padding:6px">Round Off</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">
+          ₹<%= '%.2f' % (rounded_total - total) %>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="border:1px solid #000;padding:7px;font-size:14px;font-weight:800">
+          Net Amount
+        </td>
+        <td style="border:1px solid #000;padding:7px;text-align:right;font-size:14px;font-weight:800">
+          ₹<%= '%.2f' % rounded_total %>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+
+<!-- FOOTER -->
+<div style="display:flex;justify-content:space-between;margin-top:34px;font-size:12px">
+  <div>
+    Customer Signature
+    <div style="margin-top:30px;border-top:1px solid #000;width:200px"></div>
+  </div>
+  <div style="text-align:right">
+    For <%= app_name %>
+    <div style="margin-top:30px;border-top:1px solid #000;width:200px;margin-left:auto"></div>
+    Authorized Signatory
+  </div>
+</div>
+
+</div>
 </div>
 
 </body>
