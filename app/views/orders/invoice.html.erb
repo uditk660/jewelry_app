@@ -170,6 +170,7 @@
 
 <tbody>
 <% subtotal = 0 %>
+
 <% @order.line_items.each_with_index do |li, i| %>
   <%# prefer model helper line_amount (per_gram * net * qty + making), fall back to previous formula if absent %>
   <% line = if li.respond_to?(:line_amount)
@@ -181,8 +182,14 @@
 <tr>
   <td style="border:1px solid #000;text-align:center"><%= i+1 %></td>
   <td style="border:1px solid #000;padding-left:6px"><strong><%= li.jewelry_item&.name %></strong></td>
-  <td style="border:1px solid #000;text-align:center">-</td>
-  <td style="border:1px solid #000;text-align:center"><%= li.hsn %></td>
+  <% huid_val = li.huid.present? ? li.huid : (li.jewelry_item.try(:sku).present? ? li.jewelry_item.try(:sku) : '-') %>
+  <% hsn_val = li.hsn.present? ? li.hsn : (li.jewelry_item.try(:hsn).present? ? li.jewelry_item.try(:hsn) : '-') %>
+  <td style="border:1px solid #000;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px">
+    <span title="<%= h(huid_val) %>" style="font-size:8px;line-height:1.1"><%= huid_val %></span>
+  </td>
+  <td style="border:1px solid #000;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60px">
+    <span title="<%= h(hsn_val) %>"><%= hsn_val %></span>
+  </td>
   <td style="border:1px solid #000;text-align:center"><%= li.quantity %></td>
   <td style="border:1px solid #000;text-align:center"><%= li.gross_weight %></td>
   <td style="border:1px solid #000;text-align:center"><%= li.net_weight %></td>
@@ -194,6 +201,16 @@
 <% end %>
 </tbody>
 </table>
+
+<!-- Paid via / payment method -->
+<div style="margin-top:8px;font-size:13px">
+  <strong>Paid via:</strong>
+  <% if @order.respond_to?(:payment_method) && @order.payment_method.present? %>
+    <%= @order.payment_method %>
+  <% else %>
+    Cash / Card / Online / PhonePe / Paytm / GPay
+  <% end %>
+</div>
 
 </div>
 
@@ -208,8 +225,22 @@
     <table style="width:100%;border-collapse:collapse">
       <% gross_total = subtotal %>
       <% taxable_amount = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
-      <% cgst_amt = taxable_amount * (@order.cgst_rate.to_f / 100.0) %>
-      <% igst_amt = taxable_amount * (@order.igst_rate.to_f / 100.0) %>
+      <%# prefer stored tax cents for historical orders; otherwise compute using rates (order or default) %>
+      <% if @order.respond_to?(:cgst_cents) && @order.cgst_cents.to_i > 0 %>
+        <% cgst_amt = (@order.cgst_cents.to_f / 100.0) %>
+        <% cgst_rate = @order.respond_to?(:cgst_rate) ? @order.cgst_rate.to_f : (@order.respond_to?(:cgst_rate_or_default) ? @order.cgst_rate_or_default : 1.5) %>
+      <% else %>
+        <% cgst_rate = @order.respond_to?(:cgst_rate_or_default) ? @order.cgst_rate_or_default : 1.5 %>
+        <% cgst_amt = taxable_amount * (cgst_rate / 100.0) %>
+      <% end %>
+
+      <% if @order.respond_to?(:igst_cents) && @order.igst_cents.to_i > 0 %>
+        <% igst_amt = (@order.igst_cents.to_f / 100.0) %>
+        <% igst_rate = @order.respond_to?(:igst_rate) ? @order.igst_rate.to_f : (@order.respond_to?(:igst_rate_or_default) ? @order.igst_rate_or_default : 1.5) %>
+      <% else %>
+        <% igst_rate = @order.respond_to?(:igst_rate_or_default) ? @order.igst_rate_or_default : 1.5 %>
+        <% igst_amt = taxable_amount * (igst_rate / 100.0) %>
+      <% end %>
       <% total = taxable_amount + cgst_amt + igst_amt %>
       <% rounded_total = total.round(0) %>
 
@@ -217,6 +248,13 @@
         <td style="border:1px solid #000;padding:6px">Gross Total</td>
         <td style="border:1px solid #000;padding:6px;text-align:right">
           ₹<%= '%.2f' % gross_total %>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="border:1px solid #000;padding:6px">Discount</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">
+          ₹<%= '%.2f' % (@order.discount.to_f || 0.0) %>
         </td>
       </tr>
 
@@ -229,7 +267,7 @@
 
       <tr>
         <td style="border:1px solid #000;padding:6px">
-          CGST <%= @order.cgst_rate.to_f %>%
+          CGST <%= cgst_rate %>%
         </td>
         <td style="border:1px solid #000;padding:6px;text-align:right">
           ₹<%= '%.2f' % cgst_amt %>
@@ -238,7 +276,7 @@
 
       <tr>
         <td style="border:1px solid #000;padding:6px">
-          IGST <%= @order.igst_rate.to_f %>%
+          IGST <%= igst_rate %>%
         </td>
         <td style="border:1px solid #000;padding:6px;text-align:right">
           ₹<%= '%.2f' % igst_amt %>

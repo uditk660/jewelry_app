@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20260116123000) do
+ActiveRecord::Schema.define(version: 20260121100000) do
 
   create_table "customers", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb3" do |t|
     t.string   "first_name"
@@ -127,6 +127,7 @@ ActiveRecord::Schema.define(version: 20260116123000) do
     t.date     "sale_date"
     t.integer  "customer_id"
     t.datetime "stock_decremented_at"
+    t.string   "payment_method"
     t.index ["customer_id"], name: "index_orders_on_customer_id", using: :btree
     t.index ["invoice_number"], name: "index_orders_on_invoice_number", unique: true, using: :btree
     t.index ["stock_decremented_at"], name: "index_orders_on_stock_decremented_at", using: :btree

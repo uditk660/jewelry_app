@@ -74,7 +74,17 @@ class OrdersController < ApplicationController
     cgst_rate = params[:cgst_rate].to_f
     igst_rate = params[:igst_rate].to_f
 
-    @order.update(discount: params[:discount].to_f, charges: params[:charges].to_f, cgst_rate: cgst_rate, igst_rate: igst_rate)
+    update_attrs = { discount: params[:discount].to_f, charges: params[:charges].to_f, cgst_rate: cgst_rate, igst_rate: igst_rate }
+    if @order.respond_to?(:payment_method=)
+      pm = params[:payment_method].to_s
+      if pm.blank?
+        @order.errors.add(:payment_method, 'must be selected')
+        @order.assign_attributes(update_attrs)
+        return render :show
+      end
+      update_attrs[:payment_method] = pm
+    end
+    @order.update(update_attrs)
     # compute and persist tax cents
     @order.update_columns(cgst_cents: @order.cgst_amount_cents(cgst_rate), igst_cents: @order.igst_amount_cents(igst_rate))
     @order.update(status: 'paid')
@@ -154,9 +164,11 @@ class OrdersController < ApplicationController
         gwt = li[:gross_weight].to_f
         nwt = li[:net_weight].to_f
         making = li[:making_charge].to_f
-        hsn = li[:hsn].to_s
+    hsn = li[:hsn].to_s
   huid = li[:huid].to_s
   rate = li[:rate].to_s
+    # fallback to catalog item's HSN when incoming param is blank
+    hsn = ji.try(:hsn).to_s if hsn.blank? && ji.respond_to?(:hsn)
         # only add if enough per-piece quantity is available
           if ji.quantity.to_i >= qty && qty > 0
           @order.line_items.create!(jewelry_item: ji, price_cents: ji.price_cents, quantity: qty, weight: nwt, gross_weight: gwt, net_weight: nwt, making_charge: making, hsn: hsn, huid: huid, rate: rate)

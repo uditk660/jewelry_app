@@ -143,8 +143,8 @@
 <script>
   // items prepared server-side (controller provides @items = JewelryItem.available_for_sale)
   // include sku so we can show HUID in each row
-  // include weight_grams and effective per-gram price so client can compute totals correctly
-  const items = <%= raw((@items || []).to_json(only: [:id, :name, :quantity, :sku, :weight_grams], methods: [:price, :effective_price_per_gram])) %> || [];
+  // include hsn so client can populate HSN input, plus weight_grams and effective per-gram price for totals
+  const items = <%= raw((@items || []).to_json(only: [:id, :name, :quantity, :sku, :hsn, :weight_grams], methods: [:price, :effective_price_per_gram])) %> || [];
   let tbody = null; // set after DOMContentLoaded to avoid early lookup
   // debug trace
   try{ console.log('orders/new script loaded, items count=', (items && items.length) || 0); }catch(e){}
@@ -246,6 +246,7 @@
       const populateFromId = function(idVal){
         const it = items.find(x => String(x.id) == String(idVal));
         const huidInput = row.querySelector('input[name="line_items[][huid]"]');
+        const hsnInput = row.querySelector('input[name="line_items[][hsn]"]');
         const rateInput = row.querySelector('input[name="line_items[][rate]"]');
         const netInput = row.querySelector('input[name="line_items[][net_weight]"]') || row.querySelector('.net-weight');
         if(it){
@@ -253,6 +254,7 @@
           const net = parseFloat((netInput && netInput.value) || (it.weight_grams || 0)) || 0;
           const q = parseInt(qty.value || 1) || 0;
           if(huidInput) huidInput.value = it.sku || '';
+          if(hsnInput) hsnInput.value = it.hsn || '';
           if(netInput && (!netInput.value || netInput.value === '')) netInput.value = it.weight_grams || '';
           if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
           if(priceCell) priceCell.textContent = money(perGram) + ' /g';
