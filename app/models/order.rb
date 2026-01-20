@@ -9,8 +9,22 @@ class Order < ActiveRecord::Base
 
   STATUSES = %w[pending paid failed cancelled]
 
+  # Default tax rates (percent)
+  DEFAULT_CGST_RATE = 1.5
+  DEFAULT_IGST_RATE = 1.5
+
   def total_cents
     line_items.sum('price_cents * quantity')
+  end
+
+  # Return the CGST rate for this order, falling back to the default if not set
+  def cgst_rate_or_default
+    (self.cgst_rate.present? && self.cgst_rate.to_f > 0) ? self.cgst_rate.to_f : DEFAULT_CGST_RATE
+  end
+
+  # Return the IGST rate for this order, falling back to the default if not set
+  def igst_rate_or_default
+    (self.igst_rate.present? && self.igst_rate.to_f > 0) ? self.igst_rate.to_f : DEFAULT_IGST_RATE
   end
 
   def total
