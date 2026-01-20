@@ -38,13 +38,13 @@
 
           <div class="form-row" style="margin-top:10px">
             <div style="flex:1">
-              <%= f.label :price_cents, 'Price (₹) — enter rupees (decimal)' %>
+              <%= f.label :price_cents, 'Price (₹) — computed from purity × weight × qty' %>
               <%= text_field_tag 'price_rupees', (@item.price.present? ? ('%.2f' % @item.price) : ''), class: 'form-control', id: 'price_rupees', placeholder: 'e.g. 1234.50', readonly: true %>
               <%= f.hidden_field :price_cents, id: 'price_cents_hidden' %>
             </div>
             <div style="width:220px;margin-left:12px">
-              <%= f.label :quantity, 'Quantity (pieces)' %>
-              <%= f.number_field :quantity, step: 1, min: 0, class: 'form-control' %>
+              <%= f.label :weight_grams, 'Weight (g)' %>
+              <%= f.number_field :weight_grams, step: 0.01, class: 'form-control' %>
             </div>
           </div>
 
@@ -54,8 +54,8 @@
               <%= f.text_field :sku, class: 'form-control', readonly: true %>
             </div>
             <div style="width:220px;margin-left:12px">
-              <%= f.label :weight_grams, 'Weight (g)' %>
-              <%= f.number_field :weight_grams, step: 0.01, class: 'form-control' %>
+              <%= f.label :quantity, 'Quantity (pieces)' %>
+              <%= f.number_field :quantity, step: 1, min: 0, class: 'form-control' %>
             </div>
           </div>
 
@@ -247,13 +247,48 @@
             if(previewPrice) previewPrice.textContent = priceRupeesEl.value ? '\u20B9' + parseFloat(priceRupeesEl.value).toFixed(2) : '—';
           }
 
-          // Attach listeners: purity, metal (in case purity list changes), weight and quantity
-          [purityEl, weightEl, qtyEl].forEach(el=>{ if(!el) return; el.addEventListener('input', computeAndSetPrice); el.addEventListener('change', computeAndSetPrice); });
-          if(metalEl){ metalEl.addEventListener('change', function(){ setTimeout(computeAndSetPrice, 50); }); }
+          // Helper: populate purity <select> with purities that match the selected metal
+          function populatePurityOptions(selectedMetalId){
+            if(!purityEl) return;
+            const prev = purityEl.value;
+            // build options: blank first
+            purityEl.innerHTML = '';
+            const blank = document.createElement('option');
+            blank.value = '';
+            blank.text = '— Select purity —';
+            purityEl.appendChild(blank);
+            // choose purities matching metalId; if none selected, show all
+            const list = PURITIES.filter(function(p){
+              return !selectedMetalId || String(p.metal_id) === String(selectedMetalId);
+            });
+            list.forEach(function(p){
+              const opt = document.createElement('option');
+              opt.value = p.id;
+              opt.text = p.name;
+              purityEl.appendChild(opt);
+            });
+            // restore previous selection if still present
+            if(prev){
+              const still = Array.prototype.slice.call(purityEl.options).some(o=>String(o.value)===String(prev));
+              if(still) purityEl.value = prev; else purityEl.value = '';
+            }
+          }
 
-          // Recompute when form becomes enabled (after selecting both metal and purity)
-          const origSetFormEnabled = window._setFormEnabled_original;
-          // If we had stored a reference, call it; otherwise just ensure initial compute runs
+          // Attach listeners: purity, weight and quantity
+          [purityEl, weightEl, qtyEl].forEach(el=>{ if(!el) return; el.addEventListener('input', computeAndSetPrice); el.addEventListener('change', computeAndSetPrice); });
+          if(metalEl){
+            // filter purities when metal changes and recompute price
+            metalEl.addEventListener('change', function(){
+              populatePurityOptions(metalEl.value);
+              // allow any other listeners (from other script) to run first
+              setTimeout(computeAndSetPrice, 50);
+            });
+          }
+
+          // Initial populate (respect current metal selection)
+          populatePurityOptions(metalEl ? metalEl.value : null);
+
+          // Ensure initial compute runs
           computeAndSetPrice();
         });
       })();

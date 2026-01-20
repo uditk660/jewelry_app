@@ -175,7 +175,9 @@
     s.innerHTML = opts;
   });
   const availableCount = items.filter(it => !selected.has(String(it.id))).length;
-  const addBtn = document.getElementById('add-order-row'); if(addBtn) addBtn.disabled = (availableCount === 0);
+  const addBtn = document.getElementById('add-order-row');
+  // if there are zero known items, still allow adding a placeholder row so the user can enter data
+  if(addBtn) addBtn.disabled = (items.length > 0 && availableCount === 0);
   }
   
   // call after DOM-mutations that change selected items
@@ -192,17 +194,26 @@
     // choose a default available item to avoid duplicates
     const defaultId = chooseDefaultForNewRow();
   try{ console.log('addRow called, defaultId=', defaultId); }catch(e){}
-    if(!defaultId){ alert('No more available items to add'); return; }
+    // if no default available item, still insert a placeholder row (with blank select) so one row is always visible
     const row = document.createElement('tr');
     // build a select with only available (not-selected) items
     const selected = getSelectedIds();
     const available = items.filter(it => !selected.has(String(it.id)));
-    const optionsHtml = available.map(it => {
-      const sel = String(it.id) === defaultId ? ' selected' : '';
-      return `<option value="${it.id}"${sel}>${(it.name||'')}</option>`;
-    }).join('');
-    // pick an itemObj for populating HUID/rate/line total
-    const itemObj = items.find(it => String(it.id) === defaultId) || available[0] || {};
+    let optionsHtml = '';
+    if(available.length > 0){
+      optionsHtml = available.map(it => {
+        const sel = String(it.id) === defaultId ? ' selected' : '';
+        return `<option value="${it.id}"${sel}>${(it.name||'')}</option>`;
+      }).join('');
+    } else if(items.length > 0){
+      // all items are selected in other rows; show a blank placeholder
+      optionsHtml = '<option value="">— Select item —</option>';
+    } else {
+      // no known items at all; allow a blank select so user can still add a row
+      optionsHtml = '<option value="">— Select item —</option>';
+    }
+    // pick an itemObj for populating HUID/rate/line total (may be empty)
+    const itemObj = (defaultId ? items.find(it => String(it.id) === defaultId) : available[0]) || {};
     row.innerHTML = `
       <td>
         <select name="line_items[][jewelry_item_id]" class="item-select">${optionsHtml}</select>
@@ -214,7 +225,7 @@
   <td><input type="number" name="line_items[][net_weight]" value="${itemObj.weight_grams || ''}" step="0.01" class="net-weight"></td>
   <td><input type="number" name="line_items[][rate]" value="${((itemObj.effective_price_per_gram || itemObj.price || 0) * (itemObj.weight_grams || 0) * 1).toFixed(2)}" readonly class="rate-field"><span class="price-cell" style="display:none"></span></td>
       <td><input type="number" name="line_items[][making_charge]" value="0" step="0.01"></td>
-      <td class="line-total">${money(itemObj.price||0)}</td>
+  <td class="line-total">${money(itemObj.price||0)}</td>
       <td class="col-actions"><button type="button" class="btn remove">✕</button></td>
     `;
   tbody && tbody.appendChild(row);
@@ -303,20 +314,30 @@
     }
   }
 
-  // delay wiring that touches the DOM until DOMContentLoaded so scripts don't run too early
-  document.addEventListener('DOMContentLoaded', function(){
+  // delay wiring that touches the DOM; support Turbolinks and regular loads
+  function initOrderFormOnce(){
+    // idempotent init
+    try{ if(window._orders_init_done) return; }catch(e){}
     tbody = document.getElementById('order-items');
-  try{ console.log('DOMContentLoaded, tbody found=', !!tbody); }catch(e){}
+    try{ console.log('initOrderFormOnce, tbody found=', !!tbody); }catch(e){}
     refreshAllItemSelects();
     updateRemoveButtons();
-    updateSubmitButtons();
+    // some apps may not define updateSubmitButtons; guard it
+    try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){}
     const addBtnEl = document.getElementById('add-order-row');
-    if(addBtnEl) addBtnEl.addEventListener('click', addRow);
+    if(addBtnEl && !addBtnEl.dataset._orders_bound){ addBtnEl.addEventListener('click', addRow); addBtnEl.dataset._orders_bound = '1'; }
     // start with one row if none
     if(tbody && !tbody.querySelectorAll('tr').length) addRow();
     // wire tbody input listener (only after tbody exists)
-    tbody && tbody.addEventListener('input', function(e){ recalc(); updateSubmitButtons(); if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge/)) e.target.classList.remove('field-error'); }});
-  });
+    if(tbody && !tbody.dataset._orders_input_bound){
+      tbody.addEventListener('input', function(e){ recalc(); try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){} if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge/)) e.target.classList.remove('field-error'); }});
+      tbody.dataset._orders_input_bound = '1';
+    }
+    window._orders_init_done = true;
+  }
+
+  document.addEventListener('DOMContentLoaded', initOrderFormOnce);
+  document.addEventListener('turbolinks:load', initOrderFormOnce);
 
   function recalc(){
     let subtotal = 0;
