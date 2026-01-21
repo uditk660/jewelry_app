@@ -90,7 +90,10 @@
   <!-- GST -->
   <div style="font-size:12px;line-height:1.7">
     <strong>GSTIN:</strong><br>
-    10CMOPKR7200K1ZV
+    10CMOPKR7200K1ZV <br>
+   <strong>A/C:</strong> 32606206871<br>
+   <strong>IFSC:</strong> SBIN0010769<br>
+   <strong>B Name:</strong> SUDHIR KUMAR
   </div>
 
   <!-- CENTER BRAND -->
@@ -103,7 +106,7 @@
       Sadar Bazar, Jagdishpur, Bhojpur
     </div>
     <div style="font-size:12px;margin-top:3px">
-      Phone: +91-99999-00000 | Email: sales@example.com
+      Phone: +91-98358-07332 | Email: rajeshjwellers@example.com
     </div>
   </div>
 
@@ -202,14 +205,18 @@
 </tbody>
 </table>
 
-<!-- Paid via / payment method -->
-<div style="margin-top:8px;font-size:13px">
-  <strong>Paid via:</strong>
-  <% if @order.respond_to?(:payment_method) && @order.payment_method.present? %>
-    <%= @order.payment_method %>
-  <% else %>
-    Cash / Card / Online / PhonePe / Paytm / GPay
-  <% end %>
+<!-- Paid via / payment method (styled) -->
+<div style="display:flex;justify-content:flex-start;margin-top:8px;font-size:13px">
+  <div style="border:none;padding:6px 10px;min-width:200px;text-align:left;background:#fafafa">
+    <div style="font-size:11px;color:#555;line-height:1">Paid via</div>
+    <div style="font-weight:700;font-size:14px;line-height:1.1;color:#000">
+      <% if @order.respond_to?(:payment_method) && @order.payment_method.present? %>
+        <%= @order.payment_method %>
+      <% else %>
+        Not specified
+      <% end %>
+    </div>
+  </div>
 </div>
 
 </div>
