@@ -24,10 +24,10 @@
 
     <!-- Rates -->
     <li class="nav-item" role="none">
-      <a role="menuitem" href="<%= rates_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Rates ▾</a>
+       <a role="menuitem" href="<%#= rates_path %>" tabindex="0" aria-haspopup="true" aria-expanded="false">Rates ▾</a>
       <ul class="submenu" role="menu">
-        <li><a href="<%= rates_path %>">Existing Rates</a></li>
-        <li><a href="<%= new_rate_path %>">New Rate</a></li>
+        <li><a href="<%#= rates_path %>">Existing Rates</a></li>
+        <li><a href="<%#= new_rate_path %>">New Rate</a></li>
       </ul>
     </li>
 
@@ -80,7 +80,14 @@
     <% sign_in_path = respond_to?(:new_user_session_path) ? new_user_session_path : '/users/sign_in' %>
     <% sign_out_path = respond_to?(:destroy_user_session_path) ? destroy_user_session_path : '/users/sign_out' %>
     <% if respond_to?(:user_signed_in?) && user_signed_in? %>
-      Signed in as <strong><%= current_user.email %></strong>
+      <%# show only the local-part of the email (before '@'), fall back to first name then generic label %>
+      <% display_name = nil %>
+      <% if current_user.respond_to?(:email) && current_user.email.present? %>
+        <% display_name = current_user.email.to_s.split('@').first %>
+      <% elsif current_user.respond_to?(:name) && current_user.name.present? %>
+        <% display_name = current_user.name.to_s.split(' ').first %>
+      <% end %>
+      Signed in as <strong><%= h(display_name.presence || 'Account') %></strong>
       <%= link_to 'Sign out', sign_out_path, method: :delete, id: 'sign-out-link', style: 'margin-left:12px; color:#f3f4f6' %>
     <% else %>
       <%= link_to 'Sign in', sign_in_path, id: 'sign-in-link', style: 'margin-left:12px; color:#f3f4f6' %>

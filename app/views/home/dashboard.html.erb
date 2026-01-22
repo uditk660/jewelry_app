@@ -31,7 +31,12 @@
     </div>
     <div style="text-align:right">
       <div class="muted">As of</div>
-      <div style="font-weight:600"><%= Time.now.in_time_zone('Asia/Kolkata').strftime('%Y-%m-%d %H:%M') %> IST</div>
+      <div style="font-weight:600">
+        <span id="dashboard-date"><%= Time.now.in_time_zone('Asia/Kolkata').strftime('%d - %b - %Y').upcase %></span>
+        &nbsp;
+        <span id="dashboard-clock"><%= Time.now.in_time_zone('Asia/Kolkata').strftime('%H:%M:%S') %></span>
+        &nbsp;IST
+      </div>
     </div>
   </div>
 
@@ -224,5 +229,52 @@
   if(document.readyState === 'complete' || document.readyState === 'interactive'){
     setTimeout(initDashboard, 50);
   }
+  
+  // Live IST clock and date (Turbolinks/Turbo safe)
+  function kolkataNow(){
+    var now = new Date();
+    var utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    var kolkataOffset = 5.5 * 60 * 60000; // +5:30
+    return new Date(utc + kolkataOffset);
+  }
+
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+
+  function updateDashboardDateTime(){
+    var dEl = document.getElementById('dashboard-date');
+    var tEl = document.getElementById('dashboard-clock');
+    if(!dEl && !tEl) return;
+    var now = kolkataNow();
+    var day = pad(now.getDate());
+    var months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    var mon = months[now.getMonth()];
+    var yr = now.getFullYear();
+    if(dEl) dEl.textContent = day + ' - ' + mon + ' - ' + yr;
+    if(tEl){
+      var hh = pad(now.getHours());
+      var mm = pad(now.getMinutes());
+      var ss = pad(now.getSeconds());
+      tEl.textContent = hh + ':' + mm + ':' + ss;
+    }
+  }
+
+  function startDashboardClock(){
+    // clear any previous timer
+    if(window._dashboardClockInterval) clearInterval(window._dashboardClockInterval);
+    updateDashboardDateTime();
+    window._dashboardClockInterval = setInterval(updateDashboardDateTime, 1000);
+  }
+
+  function stopDashboardClock(){ if(window._dashboardClockInterval){ clearInterval(window._dashboardClockInterval); window._dashboardClockInterval = null; } }
+
+  // ensure the clock starts with the dashboard initialization
+  document.addEventListener('turbolinks:load', startDashboardClock);
+  document.addEventListener('turbo:load', startDashboardClock);
+  document.addEventListener('DOMContentLoaded', startDashboardClock);
+  if(document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(startDashboardClock, 80);
+
+  // clear timers when caching the page
+  if(window.Turbolinks){ document.addEventListener('turbolinks:before-cache', stopDashboardClock); }
+  if(window.Turbo){ document.addEventListener('turbo:before-cache', stopDashboardClock); }
 })();
 </script>
