@@ -164,6 +164,7 @@ class OrdersController < ApplicationController
         gwt = li[:gross_weight].to_f
         nwt = li[:net_weight].to_f
         making = li[:making_charge].to_f
+    additional = li[:additional_charge].to_f
     hsn = li[:hsn].to_s
   huid = li[:huid].to_s
   rate = li[:rate].to_s
@@ -171,7 +172,7 @@ class OrdersController < ApplicationController
     hsn = ji.try(:hsn).to_s if hsn.blank? && ji.respond_to?(:hsn)
         # only add if enough per-piece quantity is available
           if ji.quantity.to_i >= qty && qty > 0
-          @order.line_items.create!(jewelry_item: ji, price_cents: ji.price_cents, quantity: qty, weight: nwt, gross_weight: gwt, net_weight: nwt, making_charge: making, hsn: hsn, huid: huid, rate: rate)
+          @order.line_items.create!(jewelry_item: ji, price_cents: ji.price_cents, quantity: qty, weight: nwt, gross_weight: gwt, net_weight: nwt, making_charge: making, additional_charge: additional, hsn: hsn, huid: huid, rate: rate)
           created += 1
         end
       end

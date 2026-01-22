@@ -45,7 +45,8 @@ class Order < ActiveRecord::Base
 
   # billing helpers
   def subtotal_cents
-    line_items.sum('price_cents * quantity')
+    # include per-line amounts (price * qty + making + additional per-item)
+    computed_total_cents
   end
 
   def subtotal
