@@ -6,7 +6,8 @@
   <title>Sign in</title>
   <style>
     /* Scoped modern sign-in styles - do not affect other pages */
-    .auth-viewport{display:flex;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(180deg,#f7fbff 0%, #eef7ff 100%);padding:32px}
+    /* keep card closer to the top instead of perfectly centered */
+    .auth-viewport{display:flex;min-height:100vh;align-items:flex-start;justify-content:center;background:linear-gradient(180deg,#f7fbff 0%, #eef7ff 100%);padding:24px 16px 48px}
     .auth-card{width:420px;background:#ffffff;border-radius:12px;box-shadow:0 8px 30px rgba(16,24,40,0.08);overflow:hidden;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
     .auth-header{padding:28px 28px 12px 28px;border-bottom:1px solid #f1f5f9}
     .brand{display:flex;gap:12px;align-items:center}
@@ -59,7 +60,10 @@
           </div>
 
           <div class="help-row">
-            <div class="muted"><%= link_to 'Forgot password?', new_password_path(resource_name) %></div>
+            <div class="muted">
+              <a href="#" id="forgot-password-link">Forgot password?</a>
+              <div id="forgot-password-tip" style="display:none;margin-top:8px;background:#fff8e6;border:1px solid #f5e0b7;padding:8px;border-radius:6px;color:#7a5a00;font-size:13px;">Please contact your company administrator to reset your password.</div>
+            </div>
             <div>
               <%= f.submit 'Sign in', class: 'btn-primary' %>
             </div>
@@ -70,5 +74,21 @@
       </div>
     </section>
   </main>
+
+  <script>(function(){
+    var link = document.getElementById('forgot-password-link');
+    var tip = document.getElementById('forgot-password-tip');
+    if(!link || !tip) return;
+    link.addEventListener('click', function(e){
+      e.preventDefault();
+      if(tip.style.display === 'none' || tip.style.display === ''){
+        tip.style.display = 'block';
+        setTimeout(function(){ try{ tip.style.display = 'none'; }catch(e){} }, 6000);
+      } else {
+        tip.style.display = 'none';
+      }
+    });
+  })();</script>
+
 </body>
 </html>
