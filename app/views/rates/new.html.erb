@@ -9,6 +9,12 @@
 .col { flex:1 }
 .muted { color:#64748b }
 .btn { padding:10px 14px; background:#0ea5a4; color:#fff; border-radius:8px; border:none }
+.btn.secondary { background:#f3f4f6; color:#0b1220 }
+.form-actions { display:flex; gap:10px; justify-content:flex-end; align-items:center; margin-top:12px }
+/* modal panel styles when loaded into the rates modal */
+.modal-panel .rate-card { padding:22px; box-shadow:0 20px 40px rgba(2,6,23,0.12) }
+.modal-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:8px }
+.modal-close { background:transparent;border:0;font-size:20px;cursor:pointer }
 @media(max-width:700px){ .row{flex-direction:column} }
 </style>
 
@@ -27,7 +33,7 @@
           <label class="label">Metal</label>
           <select id="metal-select" name="metal_id" class="input">
             <% @metals.each do |m| %>
-              <option value="<%= m.id %>"><%= m.name %></option>
+              <option value="<%= m.id %>" <%= 'selected' if m.id == @selected_metal_id %>><%= m.name %></option>
             <% end %>
           </select>
         </div>
@@ -38,19 +44,22 @@
           <label class="label">Purity</label>
           <select id="purity-select" name="purity_id" class="input">
             <% @purities_for_metal.each do |p| %>
-              <option value="<%= p.id %>"><%= p.name %> (<%= p.purity_percent %>%)</option>
+              <option value="<%= p.id %>" <%= 'selected' if defined?(@selected_purity_id) && @selected_purity_id && p.id == @selected_purity_id %>><%= p.name %> (<%= p.purity_percent %>%)</option>
             <% end %>
           </select>
         </div>
         <div class="col field">
           <label class="label">Price per gram (₹)</label>
-          <input type="text" name="price_per_gram" id="price_per_gram" class="input" placeholder="e.g. 4200.50" value="" />
+          <input type="text" name="price_per_gram" id="price_per_gram" class="input" placeholder="e.g. 4200.50" value="<%= @prefill_price.present? ? sprintf('%.2f', @prefill_price) : '' %>" />
         </div>
       </div>
 
       <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
         <a href="<%= rates_path %>" class="muted">Back to rates</a>
-        <%# <button class="btn" type="submit">Save Rate</button> %>
+        <div class="form-actions">
+          <button type="button" class="btn secondary" onclick="(function(){var m=document.getElementById('rate-modal'); if(m) m.style.display='none'; else window.location.href='<%= j rates_path %>'; })()">Cancel</button>
+          <button class="btn" type="submit">Update</button>
+        </div>
       </div>
     <% end %>
   </div>
@@ -79,5 +88,8 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 
   metalSelect.addEventListener('change', function(){ rebuildPurities(this.value); });
+  // focus price input if preselected purity provided
+  var priceInput = document.getElementById('price_per_gram');
+  if(priceInput){ priceInput.focus(); }
 });
 </script>

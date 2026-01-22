@@ -1,0 +1,87 @@
+<%# Edit Rate form for modal and full-page rendering %>
+<style>
+.rate-edit-wrap{max-width:780px;margin:18px auto}
+.rate-edit-card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 12px 30px rgba(2,6,23,0.06)}
+.row{display:flex;gap:12px}
+.col{flex:1}
+.label{display:block;margin-bottom:6px;color:#0f172a}
+.input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #e6eef6;background:#fbfdff}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+.btn{padding:8px 12px;border-radius:8px;background:#0ea5a4;color:#fff;border:0}
+.btn.secondary{background:#f3f4f6;color:#0b1220}
+</style>
+
+<div class="rate-edit-wrap modal-panel">
+  <div class="rate-edit-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h2 style="margin:0">Set / Update Rate</h2>
+      <button type="button" onclick="(function(){var m=document.getElementById('rate-modal'); if(m) m.style.display='none';})()" style="background:transparent;border:0;font-size:20px">×</button>
+    </div>
+
+    <%= form_for @rate, url: rate_path(@rate), html: { method: :patch } do |f| %>
+      <div class="row">
+        <div class="col">
+          <label class="label">Date</label>
+          <%= f.date_field :date, class: 'input', value: (@rate.date || Time.zone.today) %>
+        </div>
+        <div class="col">
+          <label class="label">Metal</label>
+          <select id="metal-select" name="metal_id" class="input">
+            <% @metals.each do |m| %>
+              <option value="<%= m.id %>" <%= 'selected' if defined?(@selected_metal_id) && @selected_metal_id && m.id == @selected_metal_id %>><%= m.name %></option>
+            <% end %>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="col">
+          <label class="label">Purity</label>
+          <select id="purity-select" name="purity_id" class="input">
+            <% @purities_for_metal.each do |p| %>
+              <option value="<%= p.id %>" <%= 'selected' if defined?(@selected_purity_id) && @selected_purity_id && p.id == @selected_purity_id %>><%= p.name %> (<%= p.purity_percent %>%)</option>
+            <% end %>
+          </select>
+        </div>
+        <div class="col">
+          <label class="label">Price per gram (₹)</label>
+          <input type="text" name="price_per_gram" id="price_per_gram" class="input" value="<%= @prefill_price.present? ? sprintf('%.2f', @prefill_price) : (@rate.price_cents_per_gram.to_f/100.0 rescue '') %>" />
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn secondary" onclick="(function(){var m=document.getElementById('rate-modal'); if(m) m.style.display='none'; else window.location.href='<%= j rates_path %>'; })()">Cancel</button>
+        <%= f.submit 'Update', class: 'btn' %>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var metalSelect = document.getElementById('metal-select');
+  var puritySelect = document.getElementById('purity-select');
+  var purities = {};
+  <% @metals.each do |m| %>
+    purities['<%= m.id %>'] = [
+      <% m.purities.order(:purity_percent).each do |p| %>
+        { id: '<%= p.id %>', label: '<%= p.name %> (<%= p.purity_percent %>%)' },
+      <% end %>
+    ];
+  <% end %>
+
+  function rebuildPurities(mid){
+    var list = purities[mid] || [];
+    puritySelect.innerHTML = '';
+    list.forEach(function(item){
+      var opt = document.createElement('option'); opt.value = item.id; opt.textContent = item.label; puritySelect.appendChild(opt);
+    });
+    if(typeof(<%= @selected_purity_id || 'null' %>) === 'number'){
+      var want = '<%= @selected_purity_id %>';
+      for(var i=0;i<puritySelect.options.length;i++){ if(puritySelect.options[i].value === want) puritySelect.selectedIndex = i; }
+    }
+  }
+  metalSelect.addEventListener('change', function(){ rebuildPurities(this.value); });
+  var priceInput = document.getElementById('price_per_gram'); if(priceInput) priceInput.focus();
+});
+</script>
