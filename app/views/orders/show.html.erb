@@ -36,6 +36,7 @@
           <th class="right">Net (g)</th>
           <th class="right">Rate (₹)</th>
           <th class="right">Making (₹)</th>
+          <th class="right">Addl (₹)</th>
           <th class="right">Line Total (₹)</th>
         </tr>
       </thead>
@@ -48,7 +49,9 @@
                         else
                           li.rate.to_f
                         end %>
-          <% line_total = per_line + li.making_charge.to_f %>
+          <% add_per_item = li.respond_to?(:additional_charge) ? li.additional_charge.to_f : 0.0 %>
+          <% add_total = add_per_item * li.quantity.to_i %>
+          <% line_total = per_line + li.making_charge.to_f + add_total %>
           <% subtotal_calc += line_total %>
           <tr>
             <td class="item-name"><%= li.jewelry_item.name %></td>
@@ -59,6 +62,7 @@
             <td class="right"><%= '%.2f' % li.net_weight.to_f %></td>
             <td class="right"><%= '%.2f' % per_line %></td>
             <td class="right"><%= '%.2f' % li.making_charge.to_f %></td>
+            <td class="right"><%= '%.2f' % add_per_item %></td>
             <td class="right total-cell">
               <%= '%.2f' % line_total %>
             </td>

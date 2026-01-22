@@ -23,14 +23,15 @@
       <table class="items-table">
         <thead>
           <tr>
-            <th style="min-width:220px">Item</th>
+            <th style="min-width:200px">Item</th>
             <th style="min-width:110px">HUID</th>
             <th style="min-width:90px">HSN</th>
             <th style="min-width:70px">Qty</th>
             <th style="min-width:90px">Gross (g)</th>
             <th style="min-width:90px">Net (g)</th>
             <th style="min-width:90px">Rate</th>
-            <th style="min-width:100px">Making</th>
+            <th style="min-width:100px">Making %</th>
+            <th style="min-width:90px">Add.</th>
             <th style="min-width:120px;text-align:right">Line Total</th>
             <th></th>
           </tr>
@@ -139,8 +140,20 @@
   </div>
 </div>
 
+<style>
+  /* hide native number input steppers (Chrome/Safari/Edge and Firefox) */
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
+</style>
 
-<script>
+<script>(function(){
+
   // items prepared server-side (controller provides @items = JewelryItem.available_for_sale)
   // include sku so we can show HUID in each row
   // include hsn so client can populate HSN input, plus weight_grams and effective per-gram price for totals
@@ -170,7 +183,9 @@
     // rebuild options from available items + current selection
     const opts = items.map(it => {
       const disabled = selected.has(String(it.id)) && String(it.id) !== String(current);
-      return `<option value="${it.id}"${String(it.id)===String(current) ? ' selected' : ''}${disabled? ' disabled' : ''}>${it.name || ''}</option>`;
+      const weightLabel = (it.weight_grams || it.weight_grams === 0) ? ` (${it.weight_grams}g)` : '';
+      const display = (it.name || '') + weightLabel;
+      return `<option value="${it.id}"${String(it.id)===String(current) ? ' selected' : ''}${disabled? ' disabled' : ''}>${display}</option>`;
     }).join('');
     s.innerHTML = opts;
   });
@@ -203,7 +218,9 @@
     if(available.length > 0){
       optionsHtml = available.map(it => {
         const sel = String(it.id) === defaultId ? ' selected' : '';
-        return `<option value="${it.id}"${sel}>${(it.name||'')}</option>`;
+        const weightLabel = (it.weight_grams || it.weight_grams === 0) ? ` (${it.weight_grams}g)` : '';
+        const display = (it.name || '') + weightLabel;
+        return `<option value="${it.id}"${sel}>${display}</option>`;
       }).join('');
     } else if(items.length > 0){
       // all items are selected in other rows; show a blank placeholder
@@ -222,10 +239,14 @@
       <td><input type="text" name="line_items[][hsn]" value=""></td>
       <td><input type="number" name="line_items[][quantity]" value="1" min="1" class="qty"></td>
       <td><input type="number" name="line_items[][gross_weight]" value="" step="0.01"></td>
-  <td><input type="number" name="line_items[][net_weight]" value="${itemObj.weight_grams || ''}" step="0.01" class="net-weight"></td>
-  <td><input type="number" name="line_items[][rate]" value="${((itemObj.effective_price_per_gram || itemObj.price || 0) * (itemObj.weight_grams || 0) * 1).toFixed(2)}" readonly class="rate-field"><span class="price-cell" style="display:none"></span></td>
-      <td><input type="number" name="line_items[][making_charge]" value="0" step="0.01"></td>
-  <td class="line-total">${money(itemObj.price||0)}</td>
+      <td><input type="number" name="line_items[][net_weight]" value="${itemObj.weight_grams || ''}" step="0.01" class="net-weight"></td>
+      <td><input type="number" name="line_items[][rate]" value="${((itemObj.effective_price_per_gram || itemObj.price || 0) * (itemObj.weight_grams || 0) * 1).toFixed(2)}" readonly class="rate-field"><span class="price-cell" style="display:none"></span></td>
+      <td>
+        <input type="number" name="line_items[][making_charge_percent]" value="0" step="0.01" class="making-percent">
+        <input type="hidden" name="line_items[][making_charge]" value="0" class="making-rupee">
+      </td>
+      <td><input type="number" name="line_items[][additional_charge]" value="0" class="additional-charge"></td>
+      <td class="line-total">${money(((itemObj.effective_price_per_gram || itemObj.price || 0) * (itemObj.weight_grams || 0) * 1) || 0)}</td>
       <td class="col-actions"><button type="button" class="btn remove">✕</button></td>
     `;
   tbody && tbody.appendChild(row);
@@ -249,16 +270,17 @@
         const hsnInput = row.querySelector('input[name="line_items[][hsn]"]');
         const rateInput = row.querySelector('input[name="line_items[][rate]"]');
         const netInput = row.querySelector('input[name="line_items[][net_weight]"]') || row.querySelector('.net-weight');
-        if(it){
+          if(it){
           const perGram = parseFloat(it.effective_price_per_gram || it.price || 0);
-          const net = parseFloat((netInput && netInput.value) || (it.weight_grams || 0)) || 0;
+          // always reflect the selected item's default net weight and recompute rate
+          const netVal = parseFloat(it.weight_grams || 0) || 0;
           const q = parseInt(qty.value || 1) || 0;
           if(huidInput) huidInput.value = it.sku || '';
           if(hsnInput) hsnInput.value = it.hsn || '';
-          if(netInput && (!netInput.value || netInput.value === '')) netInput.value = it.weight_grams || '';
-          if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
+          if(netInput) netInput.value = netVal;
+          if(rateInput) rateInput.value = (perGram * netVal * q).toFixed(2);
           if(priceCell) priceCell.textContent = money(perGram) + ' /g';
-          if(lineTotal) lineTotal.textContent = money(perGram * net * q);
+          if(lineTotal) lineTotal.textContent = money(perGram * netVal * q);
         }
       };
       // initial populate
@@ -318,8 +340,26 @@
 
   // delay wiring that touches the DOM; support Turbolinks and regular loads
   function initOrderFormOnce(){
-    // idempotent init
-    try{ if(window._orders_init_done) return; }catch(e){}
+    // idempotent init but support Turbolinks cached-body restore
+    try{
+      if(window._orders_init_done){
+        // page restored from cache — reacquire DOM nodes and re-bind lightweight handlers
+        tbody = document.getElementById('order-items');
+        const addBtnEl = document.getElementById('add-order-row');
+        if(addBtnEl && !addBtnEl.dataset._orders_bound){ addBtnEl.addEventListener('click', addRow); addBtnEl.dataset._orders_bound = '1'; }
+        if(tbody && !tbody.dataset._orders_input_bound){
+          tbody.addEventListener('input', function(e){ recalc(); try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){} if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge|making_charge_percent|additional_charge/)) e.target.classList.remove('field-error'); } });
+          tbody.dataset._orders_input_bound = '1';
+        }
+        // ensure at least one row exists so first item appears
+        if(tbody && !tbody.querySelectorAll('tr').length) addRow();
+        refreshAllItemSelects();
+        updateRemoveButtons();
+        try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){}
+        return;
+      }
+    }catch(e){}
+
     tbody = document.getElementById('order-items');
     try{ console.log('initOrderFormOnce, tbody found=', !!tbody); }catch(e){}
     refreshAllItemSelects();
@@ -332,7 +372,7 @@
     if(tbody && !tbody.querySelectorAll('tr').length) addRow();
     // wire tbody input listener (only after tbody exists)
     if(tbody && !tbody.dataset._orders_input_bound){
-      tbody.addEventListener('input', function(e){ recalc(); try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){} if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge/)) e.target.classList.remove('field-error'); }});
+      tbody.addEventListener('input', function(e){ recalc(); try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){} if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge|making_charge_percent|additional_charge/)) e.target.classList.remove('field-error'); } });
       tbody.dataset._orders_input_bound = '1';
     }
     window._orders_init_done = true;
@@ -351,16 +391,28 @@
       const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0) || 0;
       const netInput = r.querySelector('input[name^="line_items"][name$="[net_weight]"]') || r.querySelector('.net-weight');
       const net = parseFloat((netInput && netInput.value) || 0) || 0;
-      const making = parseFloat((r.querySelector('input[name^="line_items"][name$="[making_charge]"]')||{value:0}).value || 0) || 0;
+      // read making as percent and compute rupee amount for submission
+      const makingPercentEl = r.querySelector('input[name^="line_items"][name$="[making_charge_percent]"]');
+      const makingPercent = parseFloat((makingPercentEl||{value:0}).value || 0) || 0;
       const it = items.find(x => String(x.id) == String(idVal));
       let lineAmount = 0;
+      // read per-item additional charge (rupees)
+      const addEl = r.querySelector('input[name^="line_items"][name$="[additional_charge]"]');
+      const addPerItem = parseFloat((addEl||{value:0}).value || 0) || 0;
       if(it){
         const perGram = parseFloat(it.effective_price_per_gram || it.price || 0) || 0;
-        lineAmount = perGram * net * qty + (isNaN(making) ? 0 : making);
+        const baseAmount = perGram * net * qty;
+        const making = baseAmount * (makingPercent/100.0);
+        const makingHidden = r.querySelector('input[name^="line_items"][name$="[making_charge]"]');
+        if(makingHidden) makingHidden.value = making.toFixed(2);
+        const addTotal = addPerItem * qty;
+        lineAmount = baseAmount + (isNaN(making) ? 0 : making) + addTotal;
         const rateInput = r.querySelector('input[name="line_items[][rate]"]');
         if(rateInput) rateInput.value = (perGram * net * qty).toFixed(2);
       } else {
-        lineAmount = (isNaN(making) ? 0 : making);
+        const making = 0;
+        const makingHidden = r.querySelector('input[name^="line_items"][name$="[making_charge]"]');
+        if(makingHidden) makingHidden.value = making.toFixed(2);
         const rateInput = r.querySelector('input[name="line_items[][rate]"]'); if(rateInput) rateInput.value = (0).toFixed(2);
       }
       const lineTotalEl = r.querySelector('.line-total');
@@ -520,9 +572,7 @@
     if(!validateForm()){ e.preventDefault(); return false; }
     clearFormError();
   });
-</script>
 
-<script>
   // modal helpers (defensive)
   function showModalErrors(messages){
     const list = document.getElementById('error-modal-list'); if(!list) return;
@@ -578,9 +628,7 @@
     if(!ok){ highlightFieldsForErrors(); }
     return ok;
   };
-</script>
 
-<script>
   // toggles for customer form (defensive)
   const toggleEl = document.getElementById('toggle-new-customer');
   const newCust = document.getElementById('new-customer-form');
@@ -605,21 +653,17 @@
       }
     });
   }
-</script>
 
-<script>
   // wire top submit button to the form (defensive)
   const topSubmit = document.getElementById('submit-order-top');
   if(topSubmit){ topSubmit.addEventListener('click', function(e){ e.preventDefault(); const of = document.getElementById('order-form'); if(of) of.submit(); }); }
-</script>
 
-<script>
   // enable/disable Create buttons based on customer presence
   function hasValidCustomer(){
     const existingEl = document.getElementById('existing_customer_id');
-    const toggleEl = document.getElementById('toggle-new-customer');
+    const toggleEl2 = document.getElementById('toggle-new-customer');
     if(existingEl && existingEl.value) return true;
-    if(toggleEl && toggleEl.checked){
+    if(toggleEl2 && toggleEl2.checked){
       const f = document.querySelector('input[name="customer[first_name]"]');
       const e = document.querySelector('input[name="customer[email]"]');
       const p = document.querySelector('input[name="customer[phone]"]');
@@ -641,16 +685,16 @@
   // wire customer-related events to keep submit state in sync
   (function(){
     const existingEl = document.getElementById('existing_customer_id');
-    const toggleEl = document.getElementById('toggle-new-customer');
+    const toggleEl2 = document.getElementById('toggle-new-customer');
     if(existingEl) existingEl.addEventListener('change', function(){
       // if an existing customer is selected, hide/clear new-customer toggle
-      if(existingEl.value){ if(toggleEl) { toggleEl.checked = false; const newCust = document.getElementById('new-customer-form'); if(newCust) newCust.style.display = 'none'; } }
+      if(existingEl.value){ if(toggleEl2) { toggleEl2.checked = false; const newCust2 = document.getElementById('new-customer-form'); if(newCust2) newCust2.style.display = 'none'; } }
       updateSubmitButtons();
     });
-    if(toggleEl) toggleEl.addEventListener('change', function(){
-      const newCust = document.getElementById('new-customer-form');
-      if(toggleEl.checked){ if(newCust) newCust.style.display = 'block'; if(existingEl){ existingEl.value = ''; existingEl.disabled = true; } }
-      else { if(newCust) newCust.style.display = 'none'; if(existingEl) existingEl.disabled = false; }
+    if(toggleEl2) toggleEl2.addEventListener('change', function(){
+      const newCust2 = document.getElementById('new-customer-form');
+      if(toggleEl2.checked){ if(newCust2) newCust2.style.display = 'block'; if(existingEl){ existingEl.value = ''; existingEl.disabled = true; } }
+      else { if(newCust2) newCust2.style.display = 'none'; if(existingEl) existingEl.disabled = false; }
       updateSubmitButtons();
     });
     // watch new-customer inputs
@@ -661,4 +705,12 @@
     // initial sync
     updateSubmitButtons();
   })();
-</script>
+
+  // expose some helpers for other scripts or debugging
+  window._orders_helpers = window._orders_helpers || {};
+  window._orders_helpers.recalc = recalc;
+  window._orders_helpers.updateSubmitButtons = updateSubmitButtons;
+  window._orders_helpers.validateForm = validateForm;
+  window._orders_helpers.isFormValidQuiet = isFormValidQuiet;
+
+})();</script>

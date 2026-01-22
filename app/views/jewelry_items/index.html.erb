@@ -18,8 +18,14 @@
           <%= link_to 'Clear', jewelry_items_path, class: 'btn btn-link' %>
         <% end %>
       </form>
+      <%# compute total value for items that have a numeric quantity (pcs) %>
+      <% total_price = (@items || []).sum do |it|
+           q = (it.respond_to?(:quantity) && it.quantity.to_i > 0) ? it.quantity.to_i : 0
+           q > 0 ? (it.computed_price.to_f * q) : 0
+         end %>
       <div class="pagination-controls muted">
         <span>Total: <%= @total_count || @items.count %></span>
+        <span style="margin-left:12px">Value: <%= "\u20B9#{'%.2f' % total_price}" %></span>
       </div>
     </div>
     <table class="catalog-table">
