@@ -1,15 +1,220 @@
-<h1>Daily Rates</h1>
-<p><a href="<%= new_rate_path %>">Add Rate</a></p>
-<table>
-  <thead><tr><th>Date</th><th>Metal</th><th>Price (per gram)</th></tr></thead>
-  <tbody>
-  <% @rates.each do |r| %>
-    <tr>
-      <td><%= r.date %></td>
-      <td><%= r.metal_type %></td>
-      <td>$<%= sprintf('%.2f', r.price_per_gram) %></td>
-      <td><a href="<%= edit_rate_path(r) %>">Edit</a></td>
-    </tr>
+<style>
+/* Decorative rates list */
+.rates-wrap { display:block; margin-top:8px }
+.rates-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px }
+.rate-card { padding:14px; border-radius:10px; background:linear-gradient(180deg,#fff,#fbfbff); box-shadow:0 8px 20px rgba(10,20,40,0.04); border:1px solid rgba(2,6,23,0.04) }
+.rate-card h3 { margin:0 0 6px 0; font-size:18px }
+.rate-list { margin-top:8px }
+.rate-row { display:flex; align-items:center; justify-content:space-between; padding:8px 6px; border-radius:8px }
+.rate-row + .rate-row { margin-top:6px }
+.purity-badge { display:inline-block; background:#eef2ff; color:#1e3a8a; padding:6px 10px; border-radius:999px; font-weight:700 }
+.price-chip { background:linear-gradient(90deg,#fff7ed,#fff1e6); border:1px solid #ffedd5; padding:6px 10px; border-radius:999px; font-weight:700 }
+.muted.small { color:#64748b; font-size:12px; margin-left:8px }
+.btn.small { margin-left:8px; font-size:12px; padding:4px 8px; border-radius:6px; background:#0ea5a4; color:#fff; text-decoration:none }
+@media(max-width:900px){ .rates-grid{ grid-template-columns:repeat(1,1fr) } }
+</style>
+
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+  <h1 style="margin:0">Today Rates</h1>
+  <% total_value = 0.0 %>
+  <% if defined?(@grouped_rates) && @grouped_rates.present? %>
+    <% total_value = @grouped_rates.values.flatten.map do |e|
+         p = e[:purity]
+         if p.respond_to?(:updated_price) && p.updated_price.present?
+           p.updated_price.to_f
+         elsif e[:rate]
+           e[:rate].price_per_gram.to_f
+         else
+           0.0
+         end
+       end.sum %>
   <% end %>
-  </tbody>
-</table>
+  <div style="text-align:right">
+    <div class="muted small" style="margin-bottom:4px">Current stock value (sum of purity prices)</div>
+    <div style="font-weight:700;font-size:18px">₹<%= sprintf('%.2f', total_value) %></div>
+  </div>
+</div>
+<div class="rates-wrap">
+  <% if @grouped_rates.present? %>
+    <div class="rates-grid">
+      <% @grouped_rates.each do |metal_name, entries| %>
+        <div class="rate-card card" data-metal="<%= metal_name.parameterize %>">
+          <h3 class="rate-header" style="cursor:pointer"><%= metal_name %></h3>
+          <div class="rate-list">
+            <% if entries.any? %>
+              <% entries.each do |e| %>
+                <% purity = e[:purity] %>
+                <div class="rate-row" data-purity-id="<%= purity.id %>">
+                  <div class="purity">
+                    <span class="purity-badge">
+                        <%= purity.name %> 
+                      <% if purity.respond_to?(:purity_percent) && purity.purity_percent.present? %>
+                        &nbsp;•&nbsp;<%= purity.purity_percent %>%
+                      <% end %>
+                    </span>
+                  </div>
+                  <div style="display:flex;align-items:center">
+                    <% purity = e[:purity] %>
+                    <%# Prefer purity.updated_price for display; fall back to rate if purity has no updated_price %>
+                    <% display_price = if purity.respond_to?(:updated_price) && purity.updated_price.present?
+                                         purity.updated_price.to_f
+                                       elsif e[:rate]
+                                         e[:rate].price_per_gram
+                                       else
+                                         nil
+                                       end %>
+                    <% if !display_price.nil? %>
+                      <span class="price-chip">₹<%= sprintf('%.2f', display_price) %>/g</span>
+                      <% if purity.respond_to?(:updated_price) && purity.updated_price.present? %>
+                        <span class="muted small">(from purity)</span>
+                      <% elsif e[:rate] %>
+                        <span class="muted small"><%= e[:rate].date %></span>
+                      <% end %>
+                    <% else %>
+                      <span class="muted">— no rate set</span>
+                    <% end %>
+
+                    <%= link_to 'Set Rate', edit_purity_path(purity), class: 'btn small set-rate-link', style: 'background:#ef4444', data: { metal_id: purity.metal_id, purity_id: purity.id } %>
+                  </div>
+                </div>
+              <% end %>
+            <% else %>
+              <div class="muted">No purities defined for this metal.</div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="muted">No rates available.</div>
+  <% end %>
+</div>
+
+  <script>
+  (function(){
+    // simple toggle: clicking a header toggles its list, do not auto-close others
+    document.querySelectorAll('.rate-header').forEach(function(h){
+      h.addEventListener('click', function(){
+        var card = h.closest('.rate-card');
+        var list = card.querySelector('.rate-list');
+        var isHidden = (list.style.display === 'none' || list.style.display === '');
+        list.style.display = isHidden ? 'block' : 'none';
+        if(isHidden) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+    // ensure all lists are visible by default
+    document.querySelectorAll('.rate-card .rate-list').forEach(function(el){ el.style.display = 'block'; });
+
+    // If URL contains open_metal/open_purity, expand and highlight that purity
+    function queryParam(name){
+      var m = window.location.search.match(new RegExp('[?&]'+name+'=([^&]+)'));
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+    var wantMetal = queryParam('open_metal');
+    var wantPurity = queryParam('open_purity');
+    if(wantMetal || wantPurity){
+      // expand matching metal
+      if(wantMetal){
+        var sel = '.rate-card[data-metal="' + wantMetal + '"]';
+        var card = document.querySelector(sel);
+        if(card){ var list = card.querySelector('.rate-list'); if(list) list.style.display='block'; card.scrollIntoView({behavior:'smooth', block:'center'}); }
+      }
+      // highlight purity row
+      if(wantPurity){
+        var prow = document.querySelector('.rate-row[data-purity-id="' + wantPurity + '"]');
+        if(prow){ prow.style.transition='background 300ms'; prow.style.background='rgba(253, 230, 138, 0.4)'; setTimeout(function(){ prow.style.background='transparent'; }, 2600); }
+      }
+      // remove query params from URL without reloading
+      try{ var url = new URL(window.location); url.searchParams.delete('open_metal'); url.searchParams.delete('open_purity'); window.history.replaceState({}, '', url.pathname + url.search); }catch(e){}
+    }
+
+    // Modal handling: ensure modal returns to page with target params
+    window.RatesModalTarget = null;
+    document.addEventListener('click', function(e){
+      var a = e.target.closest && e.target.closest('a.set-rate-link');
+      if(!a) return;
+      // capture target info
+      var metalId = a.dataset.metalId || '';
+      var purityId = a.dataset.purityId || '';
+      var card = a.closest('.rate-card');
+      var metalSlug = card && card.dataset && card.dataset.metal ? card.dataset.metal : '';
+      window.RatesModalTarget = { metal: metalSlug, purity: purityId };
+      // allow other handler to open modal (existing code listens for clicks)
+    });
+
+    // When modal code redirects on save, it will use window.RatesModalTarget to append params.
+    // Patch the global redirect used by modal (if present) by wrapping location assignment.
+    // (Modal code will set window.location.href = '<%= j rates_path %>' )
+    var originalReplace = window._rates_redirect_replace || function(url){ window.location.href = url; };
+    window._rates_redirect_replace = function(baseUrl){
+      var targ = window.RatesModalTarget;
+      if(targ && (targ.metal || targ.purity)){
+        var u = baseUrl + '?';
+        var parts = [];
+        if(targ.metal) parts.push('open_metal=' + encodeURIComponent(targ.metal));
+        if(targ.purity) parts.push('open_purity=' + encodeURIComponent(targ.purity));
+        u += parts.join('&');
+        window.location.href = u;
+      } else {
+        window.location.href = baseUrl;
+      }
+    };
+
+  })();
+  </script>
+
+<!-- Modal container for Set Rate form -->
+<div id="rate-modal" style="display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center">
+  <div id="rate-modal-backdrop" style="position:absolute;inset:0;background:rgba(2,6,23,0.5)"></div>
+  <div id="rate-modal-panel" style="position:relative;max-width:720px;width:94%;margin:auto;z-index:1300"></div>
+</div>
+
+<script>
+(function(){
+  function openModalWithUrl(url){
+    var modal = document.getElementById('rate-modal');
+    var panel = document.getElementById('rate-modal-panel');
+    modal.style.display = 'flex';
+    panel.innerHTML = '<div style="padding:28px;background:#fff;border-radius:10px;text-align:center">Loading…</div>';
+    fetch(url, { credentials: 'same-origin' }).then(function(resp){ return resp.text(); }).then(function(html){
+      // extract the form from the returned HTML
+      var tmp = document.createElement('div'); tmp.innerHTML = html;
+      var form = tmp.querySelector('form');
+      if(!form){ panel.innerHTML = '<div style="padding:20px;background:#fff;border-radius:8px">Unable to load form.</div>'; return; }
+      // remove the submit back link if present
+      panel.innerHTML = '';
+      panel.appendChild(form);
+
+      // intercept form submit
+      form.addEventListener('submit', function(ev){
+        ev.preventDefault();
+        var action = form.getAttribute('action') || window.location.pathname;
+        var method = (form.getAttribute('method') || 'post').toUpperCase();
+        var fd = new FormData(form);
+        fetch(action, { method: method, body: fd, credentials: 'same-origin' }).then(function(r){
+          // on success, redirect to rates page and preserve target via wrapper
+          if(window._rates_redirect_replace) window._rates_redirect_replace('<%= j rates_path %>');
+          else window.location.href = '<%= j rates_path %>';
+        }).catch(function(err){
+          alert('Save failed');
+        });
+      });
+    }).catch(function(){
+      panel.innerHTML = '<div style="padding:20px;background:#fff;border-radius:8px">Failed to load.</div>';
+    });
+  }
+
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a.set-rate-link');
+    if(!a) return;
+    e.preventDefault();
+    openModalWithUrl(a.href);
+  });
+
+  // close modal on backdrop click or Escape
+  document.addEventListener('click', function(e){
+    if(e.target.id === 'rate-modal-backdrop'){ document.getElementById('rate-modal').style.display='none'; }
+  });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ var m=document.getElementById('rate-modal'); if(m) m.style.display='none'; } });
+})();
+</script>
