@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20260121100000) do
+ActiveRecord::Schema.define(version: 20260124001000) do
 
   create_table "customers", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb3" do |t|
     t.string   "first_name"
@@ -20,8 +20,9 @@ ActiveRecord::Schema.define(version: 20260121100000) do
     t.string   "gst_number"
     t.string   "email"
     t.string   "phone"
-    t.datetime "created_at",                   null: false
-    t.datetime "updated_at",                   null: false
+    t.datetime "created_at",                               null: false
+    t.datetime "updated_at",                               null: false
+    t.integer  "balance_cents",                default: 0, null: false
     t.index ["email"], name: "index_customers_on_email", unique: true, using: :btree
     t.index ["phone"], name: "index_customers_on_phone", unique: true, using: :btree
   end
@@ -64,19 +65,20 @@ ActiveRecord::Schema.define(version: 20260121100000) do
   end
 
   create_table "line_items", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb3" do |t|
-    t.integer  "order_id",                                                 null: false
-    t.integer  "jewelry_item_id",                                          null: false
-    t.integer  "price_cents",                              default: 0,     null: false
-    t.integer  "quantity",                                 default: 1,     null: false
-    t.datetime "created_at",                                               null: false
-    t.datetime "updated_at",                                               null: false
-    t.decimal  "weight",          precision: 10, scale: 2, default: "0.0"
+    t.integer  "order_id",                                                   null: false
+    t.integer  "jewelry_item_id",                                            null: false
+    t.integer  "price_cents",                                default: 0,     null: false
+    t.integer  "quantity",                                   default: 1,     null: false
+    t.datetime "created_at",                                                 null: false
+    t.datetime "updated_at",                                                 null: false
+    t.decimal  "weight",            precision: 10, scale: 2, default: "0.0"
     t.string   "hsn"
-    t.decimal  "gross_weight",    precision: 10, scale: 2, default: "0.0"
-    t.decimal  "net_weight",      precision: 10, scale: 2, default: "0.0"
-    t.decimal  "making_charge",   precision: 12, scale: 2, default: "0.0"
+    t.decimal  "gross_weight",      precision: 10, scale: 2, default: "0.0"
+    t.decimal  "net_weight",        precision: 10, scale: 2, default: "0.0"
+    t.decimal  "making_charge",     precision: 12, scale: 2, default: "0.0"
     t.string   "huid"
-    t.decimal  "rate",            precision: 12, scale: 2, default: "0.0"
+    t.decimal  "rate",              precision: 12, scale: 2, default: "0.0"
+    t.decimal  "additional_charge", precision: 12, scale: 2, default: "0.0"
     t.index ["jewelry_item_id"], name: "index_line_items_on_jewelry_item_id", using: :btree
     t.index ["order_id"], name: "index_line_items_on_order_id", using: :btree
   end
@@ -131,6 +133,20 @@ ActiveRecord::Schema.define(version: 20260121100000) do
     t.index ["customer_id"], name: "index_orders_on_customer_id", using: :btree
     t.index ["invoice_number"], name: "index_orders_on_invoice_number", unique: true, using: :btree
     t.index ["stock_decremented_at"], name: "index_orders_on_stock_decremented_at", using: :btree
+  end
+
+  create_table "payments", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb3" do |t|
+    t.integer  "order_id",                                 null: false
+    t.integer  "customer_id"
+    t.integer  "amount_cents",                 default: 0, null: false
+    t.string   "payment_method"
+    t.text     "note",           limit: 65535
+    t.datetime "created_at",                               null: false
+    t.datetime "updated_at",                               null: false
+    t.string   "receipt_number"
+    t.index ["customer_id"], name: "index_payments_on_customer_id", using: :btree
+    t.index ["order_id"], name: "index_payments_on_order_id", using: :btree
+    t.index ["receipt_number"], name: "index_payments_on_receipt_number", unique: true, using: :btree
   end
 
   create_table "purities", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8mb3" do |t|

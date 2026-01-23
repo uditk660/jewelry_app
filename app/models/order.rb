@@ -1,5 +1,6 @@
 class Order < ActiveRecord::Base
   has_many :line_items, dependent: :destroy
+  has_many :payments, dependent: :destroy
   belongs_to :customer, optional: true
   validates :status, presence: true
 
@@ -29,6 +30,24 @@ class Order < ActiveRecord::Base
 
   def total
     total_cents.to_f / 100.0
+  end
+
+  def total_cents_with_taxes_cached
+    # prefer stored tax cents if present, else compute using rates
+    if (self.cgst_cents && self.cgst_cents.to_i > 0) || (self.igst_cents && self.igst_cents.to_i > 0)
+      taxable = taxable_amount_cents
+      taxable + (cgst_cents.to_i) + (igst_cents.to_i)
+    else
+      total_cents_with_taxes(cgst_rate: cgst_rate_or_default, igst_rate: igst_rate_or_default)
+    end
+  end
+
+  def paid_cents
+    payments.sum(:amount_cents).to_i
+  end
+
+  def remaining_cents
+    [total_cents_with_taxes_cached - paid_cents, 0].max
   end
 
   def add_item(jewelry_item, quantity = 1)

@@ -32,6 +32,11 @@ Rails.application.routes.draw do
   resources :metals, only: [:index, :new, :create, :show, :destroy]
   resources :purities, only: [:index, :new, :create, :show, :edit, :update]
     resources :customers, only: [:index, :new, :create, :show]
+    resources :payments, only: [:show] do
+      member do
+        get :invoice
+      end
+    end
   resources :jewellery_categories, only: [:index, :new, :create]
   resources :stores, only: [:index, :new, :create]
   resources :metal_stocks, only: [:index, :new, :create] do

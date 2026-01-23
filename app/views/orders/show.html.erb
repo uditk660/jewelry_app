@@ -11,10 +11,21 @@
         </strong>
         · Created <%= @order.created_at.strftime('%d %b %Y, %I:%M %p') %>
       </p>
+      <% if @order.customer.present? %>
+        <p class="customer-info" style="margin-top:6px;color:#374151;font-size:0.95rem">
+          <strong><%= link_to @order.customer.full_name, customer_path(@order.customer), class: 'customer-link' %></strong>
+          <% if @order.customer.phone.present? %>
+            &nbsp;·&nbsp;<span class="muted"><%= @order.customer.phone %></span>
+          <% end %>
+        </p>
+      <% end %>
     </div>
 
     <div class="header-actions">
       <%= link_to 'Back to Orders', orders_path, class: 'btn btn-secondary' %>
+      <% if @order.status == 'pending' %>
+        <%= link_to 'Record Payment', '#charge-form', class: 'btn btn-primary' %>
+      <% end %>
     </div>
   </header>
 
@@ -119,6 +130,13 @@
           ₹<%= '%.2f' % (taxable_calc + cgst_amt + igst_amt) %>
         </strong>
       </div>
+      <%# show remaining due if any (server-side computed) %>
+      <% if @order.respond_to?(:remaining_cents) && @order.remaining_cents.to_i > 0 %>
+        <div class="summary-row muted">
+          <span>Remaining Due</span>
+          <span>₹<%= '%.2f' % (@order.remaining_cents.to_f / 100.0) %></span>
+        </div>
+      <% end %>
     </aside>
 
     <!-- PAYMENT -->
@@ -166,6 +184,14 @@
               </div>
             </div>
 
+            <div>
+              <label>Payment Amount</label>
+              <%# show remaining by default %>
+              <% remaining = (@order.respond_to?(:remaining_cents) ? @order.remaining_cents : nil) || 0 %>
+              <input type="number" name="payment_amount" id="payment_amount_input" step="0.01" min="0" max="<%= (remaining.to_f/100.0).round(2) %>" style="width:200px" value="<%= (remaining.to_f/100.0).round(2) %>">
+              <div id="payment-amount-hint" style="font-size:12px;color:#666;margin-top:4px">Enter full or partial amount. Remaining will update after recording payment.</div>
+            </div>
+
             <%# submit fixed tax rates as hidden fields so controller receives them %>
             <input type="hidden" name="cgst_rate" id="cgst_rate_show" value="1.5">
             <input type="hidden" name="igst_rate" id="igst_rate_show" value="1.5">
@@ -182,10 +208,55 @@
       </section>
     <% end %>
 
-  </div>
-</div>
+    <%# Payments history (moved below layout for full-width display) %>
 
-<!-- JS UNCHANGED -->
+  </div>
+  </div>
+
+      <%# Payments history (show even when order paid) %>
+      <% if @order.payments.any? %>
+        <style>
+          .payments-card.full-width-card{ width:100%; box-shadow:0 6px 18px rgba(16,24,40,0.06); border-radius:8px; padding:14px 18px; margin-top:16px; background:#fff; }
+          .payments-card.full-width-card h3{ margin:0 0 8px 0; font-size:1.05rem; color:#0f172a; }
+          .payments-card.full-width-card table.items-table{ width:100%; border-collapse:collapse; font-size:0.95rem; }
+          .payments-card.full-width-card table.items-table thead th{ background:#f8fafc; padding:10px 12px; text-align:left; color:#374151; font-weight:600; border-bottom:1px solid #e6eef8; }
+          .payments-card.full-width-card table.items-table tbody td{ padding:10px 12px; border-bottom:1px solid #f1f5f9; color:#111827; }
+          .payments-card.full-width-card table.items-table tbody tr:last-child td{ border-bottom:none; }
+          .payments-card.full-width-card .right{ text-align:right; }
+          .payments-card.full-width-card .muted{ color:#6b7280; font-size:0.9rem }
+        </style>
+        <section class="card payments-card full-width-card">
+          <h3>Payments History</h3>
+          <table class="items-table payments-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Method</th>
+                <th class="right">Amount (₹)</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @order.payments.order(created_at: :asc).each do |pmnt| %>
+                <tr>
+                  <td><%= pmnt.created_at.strftime('%d %b %Y %I:%M %p') %></td>
+                  <td><%= pmnt.payment_method.presence || '-' %></td>
+                  <td class="right"><%= '%.2f' % (pmnt.amount_cents.to_f/100.0) %></td>
+                    <td>
+                      <% if pmnt.receipt_number.present? %>
+                        <%= link_to pmnt.receipt_number, invoice_payment_path(pmnt), target: '_blank' %>
+                      <% else %>
+                        <%= pmnt.note.presence || '-' %>
+                      <% end %>
+                    </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </section>
+      <% end %>
+
+  <!-- JS UNCHANGED -->
 <script>
   function money(v){ return '\u20B9' + v.toFixed(2); }
   const subtotal = <%= subtotal_calc %>;
@@ -233,13 +304,23 @@
   if(discountTypeEl) discountTypeEl.addEventListener('change', update);
   update();
 
-  // Disable payment submit unless a payment method is selected
+  // Disable payment submit unless a payment method is selected and amount > 0
   (function(){
     const pm = document.getElementById('payment_method_input');
     const btn = document.getElementById('record-payment-btn');
-    if(!pm || !btn) return;
-    function toggle(){ btn.disabled = (pm.value === '' || pm.value == null); }
+    const amt = document.getElementById('payment_amount_input');
+    if(!pm || !btn || !amt) return;
+    function toggle(){ 
+      const val = parseFloat(amt.value || 0);
+      const max = parseFloat(amt.getAttribute('max') || '0');
+      const over = (max > 0 && val > max);
+      btn.disabled = (pm.value === '' || pm.value == null) || (val <= 0) || over; 
+      // show hint when over
+      const hint = document.getElementById('payment-amount-hint');
+      if(hint) hint.style.color = over ? '#a00' : '#666';
+    }
     pm.addEventListener('change', toggle);
+    amt.addEventListener('input', toggle);
     // initial state
     toggle();
   })();

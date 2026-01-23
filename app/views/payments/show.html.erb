@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Payment Receipt</title>
+  <style>
+    body{ font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial; padding:24px; color:#111827 }
+    .receipt{ max-width:720px; margin:0 auto; background:#fff; padding:20px; border:1px solid #e6edf5; border-radius:8px }
+    .h{ font-size:18px; font-weight:700; margin-bottom:8px }
+    .row{ display:flex; justify-content:space-between; margin:8px 0 }
+    .muted{ color:#6b7280 }
+    .big{ font-size:22px; font-weight:700 }
+    a{ color:#2563eb }
+  </style>
+</head>
+<body>
+<div class="receipt">
+  <div class="h">Payment Receipt</div>
+  <div class="row"><div class="muted">Receipt No</div><div><%= @payment.receipt_number.presence || '—' %></div></div>
+  <div class="row"><div class="muted">Date</div><div><%= @payment.created_at.strftime('%d %b %Y %I:%M %p') %></div></div>
+  <div class="row"><div class="muted">Amount</div><div class="big">₹<%= '%.2f' % (@payment.amount_cents.to_f/100.0) %></div></div>
+  <div class="row"><div class="muted">Method</div><div><%= @payment.payment_method.presence || '-' %></div></div>
+  <div class="row"><div class="muted">Order</div>
+    <div>
+      <% if @payment.order %>
+        <%= link_to "Order #"+@payment.order.id.to_s, order_path(@payment.order) %>
+        &nbsp;•&nbsp;
+        <%= link_to "Invoice", invoice_order_path(@payment.order) %>
+      <% else %>
+        —
+      <% end %>
+    </div>
+  </div>
+  <% if @payment.note.present? %>
+    <div style="margin-top:14px"><div class="muted">Note</div><div><%= simple_format(h(@payment.note)) %></div></div>
+  <% end %>
+</div>
+</body>
+</html>
