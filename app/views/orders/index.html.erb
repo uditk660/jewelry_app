@@ -160,16 +160,16 @@
 
 </style>
 <div class="orders-container container">
-  <div class="page-header">
-    <div>
+  <div class="orders-header">
+    <div class="orders-header-left">
       <h1>Orders</h1>
       <p class="lead">All orders placed in the system. Search by order id or item id/name.</p>
     </div>
-    <div style="text-align:right">
+    <div class="orders-header-right">
       <div style="margin-bottom:8px">
         <%= link_to 'New Sale', new_order_path, class: 'btn btn-primary' %>
       </div>
-  <div class="badge">Today's Sales: <strong><%= "\u20B9#{'%.2f' % (@today_total.to_f || 0.0)}" %></strong></div>
+      <div class="today-badge">Today's Sales: <strong><%= "\u20B9#{'%.2f' % (@today_total.to_f || 0.0)}" %></strong></div>
     </div>
   </div>
 
@@ -214,8 +214,8 @@
             <td class="small muted item-list" title="<%= h(o.line_items.map{ |li| "#{li.jewelry_item.try(:name)} x#{li.quantity}" }.join(', ')) %>">
               <%= truncate(o.line_items.map{ |li| "#{li.jewelry_item.try(:name)} x#{li.quantity}" }.join(', '), length: 80) %>
             </td>
-            <td class="small muted"><%= o.gross_weight.to_f %></td>
-            <td class="small muted"><%= o.net_weight.to_f %></td>
+            <td class="small muted"><%= (o.gross_weight.to_f.nonzero? ? o.gross_weight.to_f : o.line_items.sum(:gross_weight).to_f) %></td>
+            <td class="small muted"><%= (o.net_weight.to_f.nonzero? ? o.net_weight.to_f : o.line_items.sum(:net_weight).to_f) %></td>
             <td><%= "\u20B9#{'%.2f' % o.total_with_taxes(cgst_rate: o.cgst_rate.to_f, igst_rate: o.igst_rate.to_f)}" %></td>
             <td><%= link_to 'View', order_path(o), class: 'btn' %></td>
           </tr>

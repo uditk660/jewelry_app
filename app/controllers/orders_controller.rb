@@ -111,30 +111,26 @@ class OrdersController < ApplicationController
       @order.customer_id = params[:existing_customer_id]
     elsif params[:customer].present?
       cust_attrs = params.require(:customer).permit(:first_name, :last_name, :address, :aadhaar_or_pan, :gst_number, :email, :phone)
-      # try to find existing by phone or email
-      customer = Customer.find_by(phone: cust_attrs[:phone]) || Customer.find_by(email: cust_attrs[:email])
-      unless customer
-        # prefer phone if present, else email as uniqueness key
-        if cust_attrs[:phone].present?
-          customer = Customer.find_or_create_by(phone: cust_attrs[:phone]) do |c|
-            c.assign_attributes(cust_attrs)
-          end
-        elsif cust_attrs[:email].present?
-          customer = Customer.find_or_create_by(email: cust_attrs[:email]) do |c|
-            c.assign_attributes(cust_attrs)
-          end
-        else
-          customer = Customer.create(cust_attrs)
+      # Prefer matching existing customer by phone, then email
+      customer = nil
+      if cust_attrs[:phone].present?
+        customer = Customer.find_by(phone: cust_attrs[:phone])
+      end
+      if customer.nil? && cust_attrs[:email].present?
+        customer = Customer.find_by(email: cust_attrs[:email])
+      end
+
+      # If no existing customer, build and attempt to save a new one
+      if customer.nil?
+        customer = Customer.new(cust_attrs)
+        unless customer.save
+          @order.errors.add(:base, "Customer invalid: #{customer.errors.full_messages.join(', ')}")
+          @items = JewelryItem.available_for_sale.order(:name)
+          @customers = Customer.order(:first_name, :last_name).limit(200)
+          render template: 'orders/new' and return
         end
       end
-      # if customer creation failed due to validation, attach errors and re-render
-      if customer && !customer.persisted?
-        @order.errors.add(:base, "Customer invalid: ")
-        customer.errors.full_messages.each { |m| @order.errors.add(:base, m) }
-        @items = JewelryItem.available_for_sale.order(:name)
-        @customers = Customer.order(:first_name, :last_name).limit(200)
-        render template: 'orders/new' and return
-      end
+
       @order.customer = customer
     end
     # enforce presence of customer server-side
