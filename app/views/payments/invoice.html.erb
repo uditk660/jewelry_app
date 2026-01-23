@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Payment Invoice - <%= @payment.receipt_number || "Payment #{@payment.id}" %></title>
+  <style>
+    body{ font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial; color:#111827; padding:20px }
+    .no-print{ text-align:right; margin-bottom:12px }
+    .invoice-box { max-width:960px; margin:0 auto; background:#fff; border:1px solid #e6edf5; padding:18px; border-radius:6px; display:flex; flex-direction:column; min-height: calc(297mm - 40mm); }
+    .muted{ color:#6b7280 }
+    table{ width:100%; border-collapse:collapse }
+    table td, table th{ padding:8px; border:1px solid #e6edf5 }
+    @media print {
+      @page { size: A4; margin: 10mm }
+      .no-print{ display:none }
+      body{ padding:0 }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="no-print">
+    <button onclick="window.print()" style="padding:8px 16px">Print Invoice</button>
+  </div>
+
+  <div class="invoice-box" id="print-area">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:800;font-size:18px">Payment Invoice</div>
+        <div class="muted" style="margin-top:6px">Receipt No: <strong><%= @payment.receipt_number.presence || "R-#{@payment.id}" %></strong></div>
+        <div class="muted">Date: <%= @payment.created_at.strftime('%d %b %Y %I:%M %p') %></div>
+      </div>
+      <div style="text-align:right">
+        <% app_name = "Rajesh Alankar Mandir" %>
+        <div style="font-weight:900;font-size:20px;color:#b30000"><%= app_name %></div>
+        <div class="muted" style="font-size:12px">Sadar Bazar, Jagdishpur, Bhojpur</div>
+      </div>
+    </div>
+
+    <hr style="margin:12px 0">
+
+    <div style="display:flex;justify-content:space-between;gap:12px">
+      <div>
+        <div class="muted">Bill To</div>
+        <% if @payment.customer.present? %>
+          <div style="font-weight:700"><%= [@payment.customer.first_name, @payment.customer.last_name].compact.join(' ') %></div>
+          <div class="muted"><%= @payment.customer.address %></div>
+          <div class="muted">Phone: <%= @payment.customer.phone %></div>
+        <% elsif @payment.order && @payment.order.customer.present? %>
+          <div style="font-weight:700"><%= [@payment.order.customer.first_name, @payment.order.customer.last_name].compact.join(' ') %></div>
+          <div class="muted"><%= @payment.order.customer.address %></div>
+          <div class="muted">Phone: <%= @payment.order.customer.phone %></div>
+        <% else %>
+          <div style="font-weight:700">Walk-in Customer</div>
+        <% end %>
+      </div>
+
+      <div style="text-align:right">
+        <% if @payment.order %>
+          <div class="muted">Order # <strong><%= @payment.order.id %></strong></div>
+          <div class="muted">Order Invoice: <%= @payment.order.invoice_number %></div>
+        <% end %>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <table>
+        <thead>
+          <tr style="background:#f3f3f3">
+            <th style="width:40px">Sr</th>
+            <th>Description</th>
+            <th style="width:180px;text-align:right">Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align:center">1</td>
+            <td>
+              <strong>Payment received</strong>
+              <% if @payment.order %>
+                towards Order #<%= link_to @payment.order.id, order_path(@payment.order) %> (<%= link_to 'View Invoice', invoice_order_path(@payment.order) %>)
+              <% end %>
+            </td>
+            <td style="text-align:right">₹<%= '%.2f' % (@payment.amount_cents.to_f/100.0) %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <div style="width:360px">
+        <table>
+          <% if @payment.order.present? %>
+            <% order = @payment.order %>
+            <% subtotal = order.line_items.to_a.sum do |li|
+                 (li.respond_to?(:line_amount) ? li.line_amount.to_f : (li.net_weight.to_f * li.quantity.to_i * (li.price_cents.to_f/100.0) + li.making_charge.to_f))
+               end %>
+            <% taxable_amount = subtotal - (order.discount.to_f || 0.0) + (order.charges.to_f || 0.0) %>
+            <% if order.respond_to?(:cgst_cents) && order.cgst_cents.to_i > 0 %>
+              <% cgst_amt = order.cgst_cents.to_f/100.0 %>
+            <% else %>
+              <% cgst_amt = taxable_amount * (order.respond_to?(:cgst_rate) ? order.cgst_rate.to_f/100.0 : 0.015) %>
+            <% end %>
+            <% if order.respond_to?(:igst_cents) && order.igst_cents.to_i > 0 %>
+              <% igst_amt = order.igst_cents.to_f/100.0 %>
+            <% else %>
+              <% igst_amt = taxable_amount * (order.respond_to?(:igst_rate) ? order.igst_rate.to_f/100.0 : 0.015) %>
+            <% end %>
+            <% total = taxable_amount + cgst_amt + igst_amt %>
+            <% rounded_total = total.round(0) %>
+            <% paid_total = order.payments.sum(:amount_cents).to_f/100.0 %>
+            <% remaining = [0, (rounded_total - paid_total)].max %>
+
+            <tr>
+              <td style="padding:6px">Gross Total</td>
+              <td style="text-align:right">₹<%= '%.2f' % subtotal %></td>
+            </tr>
+            <tr>
+              <td style="padding:6px">Discount</td>
+              <td style="text-align:right">₹<%= '%.2f' % order.discount.to_f %></td>
+            </tr>
+            <tr>
+              <td style="padding:6px">Taxable Amount</td>
+              <td style="text-align:right">₹<%= '%.2f' % taxable_amount %></td>
+            </tr>
+            <tr>
+              <td style="padding:6px">CGST</td>
+              <td style="text-align:right">₹<%= '%.2f' % cgst_amt %></td>
+            </tr>
+            <tr>
+              <td style="padding:6px">SGST</td>
+              <td style="text-align:right">₹<%= '%.2f' % igst_amt %></td>
+            </tr>
+            <tr>
+              <td style="padding:6px;font-weight:700">Total</td>
+              <td style="text-align:right;font-weight:700">₹<%= '%.2f' % total %></td>
+            </tr>
+            <tr>
+              <td style="padding:6px">Round Off</td>
+              <td style="text-align:right">₹<%= '%.2f' % (rounded_total - total) %></td>
+            </tr>
+            <tr>
+              <td style="padding:7px;font-weight:800">Net Amount</td>
+              <td style="text-align:right;font-weight:800">₹<%= '%.2f' % rounded_total %></td>
+            </tr>
+            <tr>
+              <td style="padding:7px">Paid Amount (all payments)</td>
+              <td style="text-align:right">₹<%= '%.2f' % paid_total %></td>
+            </tr>
+            <tr>
+              <td style="padding:7px">Remaining Amount</td>
+              <td style="text-align:right">₹<%= '%.2f' % remaining %></td>
+            </tr>
+            <tr>
+              <td style="padding:7px;font-weight:700">This Receipt</td>
+              <td style="text-align:right;font-weight:700">₹<%= '%.2f' % (@payment.amount_cents.to_f/100.0) %></td>
+            </tr>
+          <% else %>
+            <tr>
+              <td style="padding:6px">Amount</td>
+              <td style="text-align:right">₹<%= '%.2f' % (@payment.amount_cents.to_f/100.0) %></td>
+            </tr>
+          <% end %>
+        </table>
+      </div>
+    </div>
+
+    <!-- FOOTER: signatures + governing law (anchored to bottom of page when printed) -->
+    <div style="margin-top:auto;padding-top:18px;border-top:1px solid #e6edf5;font-size:12px;color:#111827">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          Customer Signature
+          <div style="margin-top:30px;border-top:1px solid #000;width:220px"></div>
+        </div>
+        <div style="text-align:right">
+          For Rajesh Alankar Mandir
+          <div style="margin-top:30px;border-top:1px solid #000;width:220px;margin-left:auto"></div>
+          Authorized Signatory
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:#4b5563;line-height:1.4;margin-top:6px">
+        <strong>Governing Law & Jurisdiction:</strong>
+        This invoice shall be governed by and construed in accordance with the laws of India. Any dispute, claim or proceeding arising out of or in connection with this invoice shall be subject to the exclusive jurisdiction of the courts at Jagdishpur, Bihar, India.
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

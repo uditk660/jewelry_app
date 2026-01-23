@@ -25,5 +25,17 @@ class CustomersController < ApplicationController
   def show
     @customer = Customer.find(params[:id])
     @recent_orders = Order.where(customer_id: @customer.id).order(created_at: :desc).limit(10)
+    # Tabbed orders list: all / paid / pending
+    tab = params[:tab].to_s.downcase
+    orders_scope = Order.where(customer_id: @customer.id).order(created_at: :desc)
+    @orders = case tab
+              when 'paid'
+                orders_scope.where(status: 'paid')
+              when 'pending'
+                orders_scope.where(status: 'pending')
+              else
+                orders_scope
+              end
+    @payments = Payment.where(customer_id: @customer.id).order(created_at: :desc)
   end
 end

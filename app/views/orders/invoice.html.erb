@@ -76,7 +76,7 @@
 <div id="print-area">
 
 <div class="invoice-box"
-     style="width:960px;margin:12px auto;background:#fff;border:1.5px solid #000;padding:20px 14px;font-size:13px;color:#000">
+  style="width:960px;margin:12px auto;background:#fff;border:1.5px solid #000;padding:20px 14px;font-size:13px;color:#000;display:flex;flex-direction:column;min-height:calc(297mm - 40mm)">
 
 <div class="invoice-body">
 
@@ -221,119 +221,144 @@
   </div>
 </div>
 
+<!-- Payments list (invoices per payment) -->
+<% if @order.payments.any? %>
+  <div style="margin-top:18px;border-top:1px dashed #ddd;padding-top:12px;font-size:13px">
+    <div style="font-weight:700;margin-bottom:8px">Payments & Receipts</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#fafafa"><th style="text-align:left;padding:8px">Date</th><th style="text-align:left">Method</th><th style="text-align:right;padding-right:8px">Amount</th><th style="text-align:left;padding-left:8px">Receipt</th></tr>
+      </thead>
+      <tbody>
+        <% @order.payments.order(created_at: :asc).each do |pm| %>
+          <tr>
+            <td style="padding:8px"><%= pm.created_at.strftime('%d %b %Y %I:%M %p') %></td>
+            <td><%= pm.payment_method.presence || '-' %></td>
+            <td style="text-align:right;padding-right:8px">₹<%= '%.2f' % (pm.amount_cents.to_f/100.0) %></td>
+            <td style="padding-left:8px">
+              <% if pm.receipt_number.present? %>
+                <%= link_to pm.receipt_number, invoice_payment_path(pm), target: '_blank' %>
+              <% else %>
+                <%= link_to "Receipt ##{pm.id}", invoice_payment_path(pm), target: '_blank' %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
 </div>
 
 <!-- ================= SUMMARY ================= -->
+<%# Precompute totals so we can show paid/remaining on the left without changing layout %>
+<% gross_total = subtotal %>
+<% taxable_amount = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
+<% if @order.respond_to?(:cgst_cents) && @order.cgst_cents.to_i > 0 %>
+  <% cgst_amt = (@order.cgst_cents.to_f / 100.0) %>
+  <% cgst_rate = @order.respond_to?(:cgst_rate) ? @order.cgst_rate.to_f : (@order.respond_to?(:cgst_rate_or_default) ? @order.cgst_rate_or_default : 1.5) %>
+<% else %>
+  <% cgst_rate = @order.respond_to?(:cgst_rate_or_default) ? @order.cgst_rate_or_default : 1.5 %>
+  <% cgst_amt = taxable_amount * (cgst_rate / 100.0) %>
+<% end %>
+<% if @order.respond_to?(:igst_cents) && @order.igst_cents.to_i > 0 %>
+  <% igst_amt = (@order.igst_cents.to_f / 100.0) %>
+  <% igst_rate = @order.respond_to?(:igst_rate) ? @order.igst_rate.to_f : (@order.respond_to?(:igst_rate_or_default) ? @order.igst_rate_or_default : 1.5) %>
+<% else %>
+  <% igst_rate = @order.respond_to?(:igst_rate_or_default) ? @order.igst_rate_or_default : 1.5 %>
+  <% igst_amt = taxable_amount * (igst_rate / 100.0) %>
+<% end %>
+<% total = taxable_amount + cgst_amt + igst_amt %>
+<% rounded_total = total.round(0) %>
+<% paid_total = @order.payments.sum(:amount_cents).to_f/100.0 %>
+<% remaining = [0, (rounded_total - paid_total)].max %>
+
 <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-top:16px;font-size:12.5px">
 
-  <!-- Left empty / notes -->
-  <div></div>
+  <!-- Left: show Paid / Remaining (left aligned) -->
+  <div style="font-size:13px;line-height:1.4;margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><strong>Total Paid</strong></div>
+      <div style="font-weight:700;text-align:right">₹<%= '%.2f' % paid_total %></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+      <div><strong>Remaining Amount</strong></div>
+      <div style="font-weight:700;text-align:right;color:#b91c1c">₹<%= '%.2f' % remaining %></div>
+    </div>
+  </div>
 
   <!-- Amount Summary -->
   <div>
     <table style="width:100%;border-collapse:collapse">
-      <% gross_total = subtotal %>
-      <% taxable_amount = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
-      <%# prefer stored tax cents for historical orders; otherwise compute using rates (order or default) %>
-      <% if @order.respond_to?(:cgst_cents) && @order.cgst_cents.to_i > 0 %>
-        <% cgst_amt = (@order.cgst_cents.to_f / 100.0) %>
-        <% cgst_rate = @order.respond_to?(:cgst_rate) ? @order.cgst_rate.to_f : (@order.respond_to?(:cgst_rate_or_default) ? @order.cgst_rate_or_default : 1.5) %>
-      <% else %>
-        <% cgst_rate = @order.respond_to?(:cgst_rate_or_default) ? @order.cgst_rate_or_default : 1.5 %>
-        <% cgst_amt = taxable_amount * (cgst_rate / 100.0) %>
-      <% end %>
-
-      <% if @order.respond_to?(:igst_cents) && @order.igst_cents.to_i > 0 %>
-        <% igst_amt = (@order.igst_cents.to_f / 100.0) %>
-        <% igst_rate = @order.respond_to?(:igst_rate) ? @order.igst_rate.to_f : (@order.respond_to?(:igst_rate_or_default) ? @order.igst_rate_or_default : 1.5) %>
-      <% else %>
-        <% igst_rate = @order.respond_to?(:igst_rate_or_default) ? @order.igst_rate_or_default : 1.5 %>
-        <% igst_amt = taxable_amount * (igst_rate / 100.0) %>
-      <% end %>
-      <% total = taxable_amount + cgst_amt + igst_amt %>
-      <% rounded_total = total.round(0) %>
-
       <tr>
         <td style="border:1px solid #000;padding:6px">Gross Total</td>
-        <td style="border:1px solid #000;padding:6px;text-align:right">
-          ₹<%= '%.2f' % gross_total %>
-        </td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">₹<%= '%.2f' % gross_total %></td>
       </tr>
 
       <tr>
         <td style="border:1px solid #000;padding:6px">Discount</td>
-        <td style="border:1px solid #000;padding:6px;text-align:right">
-          ₹<%= '%.2f' % (@order.discount.to_f || 0.0) %>
-        </td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">₹<%= '%.2f' % (@order.discount.to_f || 0.0) %></td>
       </tr>
 
       <tr>
         <td style="border:1px solid #000;padding:6px">Taxable Amount</td>
-        <td style="border:1px solid #000;padding:6px;text-align:right">
-          ₹<%= '%.2f' % taxable_amount %>
-        </td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">₹<%= '%.2f' % taxable_amount %></td>
       </tr>
 
       <tr>
-        <td style="border:1px solid #000;padding:6px">
-          CGST <%= cgst_rate %>%
-        </td>
-        <td style="border:1px solid #000;padding:6px;text-align:right">
-          ₹<%= '%.2f' % cgst_amt %>
-        </td>
+        <td style="border:1px solid #000;padding:6px">CGST <%= cgst_rate %>%</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">₹<%= '%.2f' % cgst_amt %></td>
       </tr>
 
       <tr>
-        <td style="border:1px solid #000;padding:6px">
-          IGST <%= igst_rate %>%
-        </td>
-        <td style="border:1px solid #000;padding:6px;text-align:right">
-          ₹<%= '%.2f' % igst_amt %>
-        </td>
+        <td style="border:1px solid #000;padding:6px">SGST <%= igst_rate %>%</td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">₹<%= '%.2f' % igst_amt %></td>
       </tr>
 
       <tr>
         <td style="border:1px solid #000;padding:6px;font-weight:700">Total</td>
-        <td style="border:1px solid #000;padding:6px;text-align:right;font-weight:700">
-          ₹<%= '%.2f' % total %>
-        </td>
+        <td style="border:1px solid #000;padding:6px;text-align:right;font-weight:700">₹<%= '%.2f' % total %></td>
       </tr>
 
       <tr>
         <td style="border:1px solid #000;padding:6px">Round Off</td>
-        <td style="border:1px solid #000;padding:6px;text-align:right">
-          ₹<%= '%.2f' % (rounded_total - total) %>
-        </td>
+        <td style="border:1px solid #000;padding:6px;text-align:right">₹<%= '%.2f' % (rounded_total - total) %></td>
       </tr>
 
       <tr>
-        <td style="border:1px solid #000;padding:7px;font-size:14px;font-weight:800">
-          Net Amount
-        </td>
-        <td style="border:1px solid #000;padding:7px;text-align:right;font-size:14px;font-weight:800">
-          ₹<%= '%.2f' % rounded_total %>
-        </td>
+        <td style="border:1px solid #000;padding:7px;font-size:14px;font-weight:800">Net Amount</td>
+        <td style="border:1px solid #000;padding:7px;text-align:right;font-size:14px;font-weight:800">₹<%= '%.2f' % rounded_total %></td>
       </tr>
     </table>
   </div>
 </div>
 
 
-<!-- FOOTER -->
-<div style="display:flex;justify-content:space-between;margin-top:34px;font-size:12px">
-  <div>
-    Customer Signature
-    <div style="margin-top:30px;border-top:1px solid #000;width:200px"></div>
-  </div>
-  <div style="text-align:right">
-    For <%= app_name %>
-    <div style="margin-top:30px;border-top:1px solid #000;width:200px;margin-left:auto"></div>
-    Authorized Signatory
-  </div>
-</div>
 
-</div>
-</div>
+<!-- FOOTER: signatures + governing law (anchored to bottom of invoice) -->
+    <div style="margin-top:auto;padding-top:18px;border-top:1px solid #e6edf5;font-size:12px;color:#111827">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          Customer Signature
+          <div style="margin-top:30px;border-top:1px solid #000;width:220px"></div>
+        </div>
+        <div style="text-align:right">
+          For <%= app_name %>
+          <div style="margin-top:30px;border-top:1px solid #000;width:220px;margin-left:auto"></div>
+          Authorized Signatory
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:#4b5563;line-height:1.4;margin-top:6px">
+        <strong>Governing Law & Jurisdiction:</strong>
+        This invoice shall be governed by and construed in accordance with the laws of India. Any dispute, claim or proceeding arising out of or in connection with this invoice shall be subject to the exclusive jurisdiction of the courts at Jagdishpur, Bihar, India.
+      </div>
+    </div>
+
+  </div> <!-- .invoice-box -->
+
+</div> <!-- #print-area -->
 
 </body>
 </html>
