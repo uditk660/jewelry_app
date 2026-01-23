@@ -15,9 +15,6 @@
 
     <div class="header-actions">
       <%= link_to 'Back to Orders', orders_path, class: 'btn btn-secondary' %>
-      <% if @order.status == 'pending' %>
-        <%= link_to 'Record Payment', '#charge-form', class: 'btn btn-primary' %>
-      <% end %>
     </div>
   </header>
 
@@ -153,8 +150,8 @@
             </div>
 
             <div>
-              <label>Paid via</label>
-              <select name="payment_method" id="payment_method_input" style="width:220px" required>
+              <label><span style="color:#a00;margin-right:6px">*</span>Paid via</label>
+                <select name="payment_method" id="payment_method_input" style="width:220px" required aria-required="true">
                 <option value="">-- Select --</option>
                 <option value="Cash" <%= 'selected' if (@order.respond_to?(:payment_method) && @order.payment_method.to_s == 'Cash') %>>Cash</option>
                 <option value="Card" <%= 'selected' if (@order.respond_to?(:payment_method) && @order.payment_method.to_s == 'Card') %>>Card</option>
@@ -177,7 +174,7 @@
           </div>
 
           <div class="form-actions">
-            <button class="btn btn-primary">
+            <button id="record-payment-btn" class="btn btn-primary">
               Record Payment & Print Invoice
             </button>
           </div>
@@ -235,4 +232,15 @@
   const discountTypeEl = document.getElementById('discount-type');
   if(discountTypeEl) discountTypeEl.addEventListener('change', update);
   update();
+
+  // Disable payment submit unless a payment method is selected
+  (function(){
+    const pm = document.getElementById('payment_method_input');
+    const btn = document.getElementById('record-payment-btn');
+    if(!pm || !btn) return;
+    function toggle(){ btn.disabled = (pm.value === '' || pm.value == null); }
+    pm.addEventListener('change', toggle);
+    // initial state
+    toggle();
+  })();
 </script>

@@ -96,7 +96,7 @@
                 </div>
                 <div style="flex:1">
                   <label>Phone</label>
-                  <%= c.text_field :phone %>
+                  <%= c.telephone_field :phone, maxlength: 10, inputmode: 'numeric', pattern: "\\d{10}", placeholder: '10 digits' %>
                 </div>
               </div>
 
@@ -465,15 +465,18 @@
       showFormError('Please select an existing customer or add a new customer.');
       return false;
     }
-    if(toggle && toggle.checked){
+      if(toggle && toggle.checked){
       const fnameEl = document.querySelector('input[name="customer[first_name]"]');
-      const emailEl = document.querySelector('input[name="customer[email]"]');
       const phoneEl = document.querySelector('input[name="customer[phone]"]');
       const fname = fnameEl ? fnameEl.value.trim() : '';
-      const email = emailEl ? emailEl.value.trim() : '';
       const phone = phoneEl ? phoneEl.value.trim() : '';
-      if(!fname || !email || !phone){
-        showFormError('Please fill first name, email and phone for the new customer.');
+      const phoneDigits = phone.replace(/\D/g,'');
+      if(!fname || !phone){
+        showFormError('Please fill first name and phone for the new customer.');
+        return false;
+      }
+      if(phoneDigits.length !== 10){
+        showFormError('Phone must be exactly 10 digits.');
         return false;
       }
     }
@@ -502,12 +505,11 @@
     if(!existing && (!toggle || !toggle.checked)) return false;
     if(toggle && toggle.checked){
       const fnameEl = document.querySelector('input[name="customer[first_name]"]');
-      const emailEl = document.querySelector('input[name="customer[email]"]');
       const phoneEl = document.querySelector('input[name="customer[phone]"]');
       const fname = fnameEl ? fnameEl.value.trim() : '';
-      const email = emailEl ? emailEl.value.trim() : '';
-      const phone = phoneEl ? phoneEl.value.trim() : '';
-      if(!fname || !email || !phone) return false;
+      const phone = phoneEl ? (phoneEl.value || '').replace(/\D/g,'') : '';
+      if(!fname || !phone) return false;
+      if(phone.length !== 10) return false;
     }
     // items validity: at least one row with selected item, qty>0, net_weight>0
     const rows = tbody ? tbody.querySelectorAll('tr') : [];
@@ -540,13 +542,11 @@
     }
     if(toggle && toggle.checked){
       const fnameEl = document.querySelector('input[name="customer[first_name]"]');
-      const emailEl = document.querySelector('input[name="customer[email]"]');
       const phoneEl = document.querySelector('input[name="customer[phone]"]');
       const fname = fnameEl ? fnameEl.value.trim() : '';
-      const email = emailEl ? emailEl.value.trim() : '';
       const phone = phoneEl ? phoneEl.value.trim() : '';
-      if(!fname || !email || !phone){
-        showFormError('Please fill first name, email and phone for the new customer.');
+      if(!fname || !phone){
+        showFormError('Please fill first name and phone for the new customer.');
         return false;
       }
     }
@@ -608,10 +608,13 @@
       if(existingSel) existingSel.classList.add('field-error');
     }
     if(toggle && toggle.checked){
-      ['customer[first_name]','customer[email]','customer[phone]'].forEach(n => {
+      ['customer[first_name]','customer[phone]'].forEach(n => {
         const el = document.querySelector(`[name="${n}"]`);
         if(el && !el.value.trim()) el.classList.add('field-error');
       });
+      // validate phone length
+      const phoneEl = document.querySelector('input[name="customer[phone]"]');
+      if(phoneEl){ const digits = (phoneEl.value||'').replace(/\D/g,''); if(digits.length !== 10) phoneEl.classList.add('field-error'); }
     }
   }
 
@@ -665,9 +668,9 @@
     if(existingEl && existingEl.value) return true;
     if(toggleEl2 && toggleEl2.checked){
       const f = document.querySelector('input[name="customer[first_name]"]');
-      const e = document.querySelector('input[name="customer[email]"]');
       const p = document.querySelector('input[name="customer[phone]"]');
-      return f && e && p && f.value.trim() !== '' && e.value.trim() !== '' && p.value.trim() !== '';
+      const pv = p ? (p.value || '').replace(/\D/g,'') : '';
+      return f && p && f.value.trim() !== '' && pv.length === 10;
     }
     return false;
   }
@@ -698,10 +701,19 @@
       updateSubmitButtons();
     });
     // watch new-customer inputs
-    ['customer[first_name]','customer[email]','customer[phone]'].forEach(name => {
+    ['customer[first_name]','customer[phone]'].forEach(name => {
       const el = document.querySelector(`[name="${name}"]`);
       if(el) el.addEventListener('input', updateSubmitButtons);
     });
+    // sanitize phone input to digits only and limit to 10 chars
+    const phoneElSan = document.querySelector('input[name="customer[phone]"]');
+    if(phoneElSan){
+      phoneElSan.addEventListener('input', function(e){
+        const cleaned = (this.value || '').replace(/\D/g,'').slice(0,10);
+        if(this.value !== cleaned) this.value = cleaned;
+        updateSubmitButtons();
+      });
+    }
     // initial sync
     updateSubmitButtons();
   })();
