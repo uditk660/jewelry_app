@@ -1,18 +1,191 @@
 <style>
-/* Scoped styles for customers index */
-.customer-list-page{max-width:1200px;margin:22px auto;padding:0 16px}
-.customer-list-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
-.customer-list-header h1{margin:0;font-size:1.35rem}
-.customer-card{background:#fff;border:1px solid #eef4fb;border-radius:10px;padding:14px;box-shadow:0 6px 18px rgba(15,23,42,0.04)}
-.customer-search{display:flex;gap:8px;align-items:center;margin-bottom:12px}
-.customer-search input{padding:8px 12px;border-radius:8px;border:1px solid #e6edf3;min-width:320px}
-.customers-table{width:100%;border-collapse:collapse}
-.customers-table th{background:#fbfdff;color:var(--muted);text-align:left;padding:10px;border-bottom:1px solid #eef4fb;font-weight:600}
-.customers-table td{padding:12px;border-bottom:1px solid #f3f7fb;vertical-align:top}
-.muted{color:var(--muted)}
-.addr{max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.actions{width:110px;text-align:right}
-@media(max-width:900px){.customer-search input{min-width:160px}.addr{max-width:180px}}
+/* ---------- Base Reset (scoped & safe) ---------- */
+.customer-list-page *,
+.customer-list-page *::before,
+.customer-list-page *::after{
+  box-sizing:border-box;
+}
+
+/* ---------- Layout ---------- */
+.customer-list-page{
+  max-width:1200px;
+  margin:24px auto;
+  padding:0 16px;
+}
+
+.customer-card{
+  background:#fff;
+  border:1px solid #eef4fb;
+  border-radius:10px;
+  padding:16px;
+  overflow:hidden; /* 🔑 prevents bleed */
+}
+
+/* ---------- Header ---------- */
+.customer-list-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:14px;
+}
+.customer-list-header h1{
+  margin:0;
+  font-size:1.4rem;
+}
+
+/* ---------- Search ---------- */
+.customer-search{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap; /* 🔑 prevents overflow */
+  margin-bottom:12px;
+}
+.customer-search form{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.customer-search input{
+  padding:8px 12px;
+  border-radius:8px;
+  border:1px solid #e6edf3;
+  width:100%;
+  max-width:320px; /* 🔑 instead of min-width */
+}
+
+/* ---------- Table ---------- */
+.customers-table{
+  width:100%;
+  max-width:100%;
+  border-collapse:collapse;
+  table-layout:fixed; /* 🔑 keeps inside */
+}
+.customers-table th,
+.customers-table td{
+  padding:10px 12px;
+  border-bottom:1px solid #eef4fb;
+  vertical-align:top;
+  word-wrap:break-word;
+}
+.customers-table th{
+  background:#fbfdff;
+  color:var(--muted);
+  font-weight:600;
+}
+
+/* ---------- Columns ---------- */
+.addr{
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.actions{
+  width:130px;
+  text-align:right;
+  white-space:nowrap;
+}
+
+/* ---------- Avatar ---------- */
+.avatar{
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#f1f7ff;
+  font-weight:700;
+  margin-right:10px;
+}
+.row-name{
+  display:flex;
+  align-items:center;
+}
+
+/* ---------- Buttons ---------- */
+.btn-sm{
+  padding:6px 8px;
+  border-radius:6px;
+  border:1px solid #d8e6f6;
+  background:#fff;
+  text-decoration:none;
+  font-size:.85rem;
+}
+.btn-primary{
+  background:#0b6efd;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:8px;
+  text-decoration:none;
+}
+
+/* ---------- Mobile ---------- */
+.customer-card-list{display:none}
+
+@media(max-width:900px){
+  .actions{width:110px}
+}
+
+@media(max-width:700px){
+  .customers-table{display:none}
+  .customer-card-list{display:block}
+  .customer-card-item{
+    background:#fff;
+    border:1px solid #eef4fb;
+    border-radius:10px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+}
+
+
+
+/* ---------- Global font size control ---------- */
+:root{
+  --bg:#ffffff;
+  --muted:#6b7280;
+  --accent:#0b6efd;
+  --soft:#f4f8ff;
+  --line:#eef4fb;
+  --danger:#e03a3a;
+}
+
+.customer-list-page{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#0f172a;font-size:13px}
+.customer-list-header h1{font-size:1.05rem;color:#0b2540;margin-bottom:4px}
+.customer-list-header .small{color:var(--muted);font-size:0.85rem}
+
+/* table polish */
+.customers-table thead th{background:transparent;color:var(--muted);border-bottom:1px solid var(--line);font-weight:600}
+.customers-table tbody tr{transition:background .12s ease,border-color .12s ease}
+.customers-table tbody tr:hover{background:var(--soft)}
+.customer-row{cursor:pointer}
+.customer-card-item{cursor:pointer}
+.customers-table td strong{color:#06283a}
+
+/* compact actions */
+.actions{width:120px;min-width:90px;text-align:right}
+.actions .btn-sm{margin-left:6px;border-color:transparent;padding:6px 8px;border-radius:8px}
+.btn-view{background:transparent;color:#0b6efd;border:1px solid rgba(11,110,253,0.08)}
+.btn-edit{background:transparent;color:#0f766e;border:1px solid rgba(15,118,110,0.08)}
+.btn-delete{background:transparent;color:var(--danger);border:1px solid rgba(224,58,58,0.08)}
+.btn-sm:hover{transform:translateY(-1px)}
+
+/* avatar */
+.avatar{background:linear-gradient(135deg,#eef7ff,#e6f0ff);color:var(--accent);font-size:13px}
+
+/* search */
+.customer-search input{background:#fbfdff;border:1px solid var(--line)}
+
+/* modal */
+#customer-edit-modal{font-size:13px}
+#customer-edit-modal .modal-panel{position:relative;border-radius:10px}
+#customer-edit-modal .modal-panel .close-x{position:absolute;right:10px;top:8px;border:0;background:transparent;font-size:20px;color:#55606b;padding:8px;cursor:pointer}
+
+/* mobile cards */
+.customer-card-item{border-radius:8px;padding:10px;background:#fff;border:1px solid var(--line)}
 </style>
 
 <div class="customer-list-page">
@@ -22,7 +195,7 @@
       <div class="small muted">Manage customers and contact/tax information</div>
     </div>
     <div>
-      <%= link_to 'New Customer', new_customer_path, class: 'btn btn-primary' %>
+      <%= link_to 'New Customer', new_customer_path, class: 'btn-primary' %>
     </div>
   </div>
 
@@ -30,11 +203,15 @@
     <div class="customer-search">
       <form method="get" action="">
         <input type="text" name="q" value="<%= h(params[:q]) %>" placeholder="Search by name, phone, email, aadhaar/pan or gst">
-        <button class="btn" type="submit">Search</button>
+        <button class="btn-sm" type="submit">Search</button>
+        <% if params[:q].present? %>
+          <%= link_to 'Clear', customers_path, class: 'btn-sm', style: 'margin-left:8px' %>
+        <% end %>
       </form>
       <div style="margin-left:auto" class="muted">Showing <strong><%= @customers.size %></strong> customers</div>
     </div>
 
+    <!-- Desktop table -->
     <table class="customers-table">
       <thead>
         <tr>
@@ -50,8 +227,16 @@
       </thead>
       <tbody>
         <% @customers.each do |c| %>
-          <tr>
-            <td><strong><%= [c.first_name, c.last_name].reject(&:blank?).join(' ') %></strong><br><span class="muted"><%= c.email.presence || '—' %></span></td>
+          <tr class="customer-row" data-url="<%= customer_path(c) %>">
+            <td>
+              <div class="row-name">
+                <div class="avatar"><%= (c.first_name.to_s[0] || '').upcase %><%= (c.last_name.to_s[0] || '').upcase %></div>
+                <div>
+                  <strong><%= [c.first_name, c.last_name].reject(&:blank?).join(' ') %></strong><br>
+                  <span class="muted"><%= c.email.presence || '—' %></span>
+                </div>
+              </div>
+            </td>
             <td><%= c.phone.presence || '—' %></td>
             <td><%= c.email.presence || '—' %></td>
             <td><%= c.aadhaar_or_pan.presence || '—' %></td>
@@ -59,11 +244,123 @@
             <td class="addr" title="<%= h(c.address.to_s) %>"><%= c.address.present? ? truncate(c.address, length: 80) : '—' %></td>
             <td class="small muted"><%= c.created_at ? c.created_at.strftime('%b %d, %Y') : '—' %></td>
             <td class="actions">
-              <%= link_to 'View', customer_path(c), class: 'btn btn-sm' %>
+              <%# View removed — row is clickable %>
+              <%#= link_to 'Edit', '#', class: 'btn-sm open-customer-edit', data: { url: edit_customer_path(c) }, style: 'margin-left:6px' %>
+              <%= link_to 'Delete', customer_path(c), method: :delete, data: { confirm: 'Delete this customer?' }, class: 'btn-sm', style: 'margin-left:6px' %>
             </td>
           </tr>
         <% end %>
       </tbody>
     </table>
+
+    <!-- Mobile card list (same data, optimized for narrow screens) -->
+    <div class="customer-card-list">
+      <% @customers.each do |c| %>
+        <div class="customer-card-item">
+          <div class="row">
+            <div style="display:flex;gap:12px;align-items:center">
+              <div class="avatar"><%= (c.first_name.to_s[0] || '').upcase %><%= (c.last_name.to_s[0] || '').upcase %></div>
+              <div>
+                <div><strong><%= [c.first_name, c.last_name].reject(&:blank?).join(' ') %></strong></div>
+                <div class="meta"><%= c.phone.presence || '—' %> · <span class="muted"><%= c.email.presence || '—' %></span></div>
+              </div>
+            </div>
+            <div class="actions">
+              <%# View removed — card is clickable %>
+              <%#= link_to 'Edit', '#', class: 'btn-sm open-customer-edit', data: { url: edit_customer_path(c) }, style: 'margin-left:6px' %>
+            </div>
+          </div>
+          <div class="meta">GST: <%= c.gst_number.presence || '—' %> · Aadhaar/PAN: <%= c.aadhaar_or_pan.presence || '—' %></div>
+          <div class="meta" title="<%= h(c.address.to_s) %>"><%= c.address.present? ? truncate(c.address, length: 120) : '—' %></div>
+        </div>
+      <% end %>
+    </div>
   </div>
 </div>
+
+<!-- Modal container for editing customer -->
+<div id="customer-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(8,12,20,0.45);z-index:1100;align-items:center;justify-content:center;padding:20px">
+  <div class="modal-panel" style="background:#fff;border-radius:10px;max-width:720px;width:100%;box-shadow:0 8px 30px rgba(2,6,23,0.3);overflow:auto;max-height:90vh">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #eef4fb">
+      <div style="font-weight:700">Edit Customer</div>
+      <button id="customer-edit-close" class="btn-sm" style="margin-left:8px">Close</button>
+    </div>
+    <div class="modal-body" style="padding:18px">
+      <!-- fetched form will be injected here -->
+    </div>
+  </div>
+</div>
+
+<script>
+;(function(){
+  function qs(sel, ctx){ return (ctx||document).querySelector(sel); }
+  function qsa(sel, ctx){ return Array.from((ctx||document).querySelectorAll(sel)); }
+  var modal = qs('#customer-edit-modal');
+  var body = qs('#customer-edit-modal .modal-body');
+  var closeBtn = qs('#customer-edit-close');
+
+  function showModal(){ modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+  function hideModal(){ modal.style.display = 'none'; document.body.style.overflow = ''; body.innerHTML = ''; }
+
+  closeBtn && closeBtn.addEventListener('click', function(e){ e.preventDefault(); hideModal(); });
+  modal && modal.addEventListener('click', function(e){ if(e.target === modal) hideModal(); });
+
+  function csrfToken(){ var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.content : '' }
+
+  function submitFormAjax(form){
+    var url = form.getAttribute('action') || window.location.href;
+    var method = (form.getAttribute('method') || 'post').toUpperCase();
+    var fd = new FormData(form);
+    var headers = { 'X-CSRF-Token': csrfToken(), 'Accept': 'text/html' };
+    fetch(url, { method: method, headers: headers, body: fd, credentials: 'same-origin' })
+      .then(function(resp){
+        if(resp.redirected){ window.location = resp.url; return; }
+        return resp.text();
+      })
+      .then(function(text){
+        if(!text) return;
+        // if server returned the edit form (validation errors), replace body
+        body.innerHTML = text;
+        bindForm(body.querySelector('form'));
+      }).catch(function(err){ console.error('Customer edit save failed', err); });
+  }
+
+  function bindForm(form){ if(!form) return; form.addEventListener('submit', function(e){ e.preventDefault(); submitFormAjax(form); }); }
+
+  function openEdit(url){
+    fetch(url, { credentials: 'same-origin', headers: { 'X-CSRF-Token': csrfToken(), 'Accept': 'text/html' } })
+      .then(function(r){ return r.text(); })
+      .then(function(html){ body.innerHTML = html; showModal(); bindForm(body.querySelector('form')); })
+      .catch(function(e){ console.error('Failed to load edit form', e); });
+  }
+
+  document.addEventListener('click', function(e){
+    var el = e.target.closest && e.target.closest('.open-customer-edit');
+    if(!el) return;
+    e.preventDefault();
+    var url = el.dataset.url;
+    if(url) openEdit(url);
+  });
+})();
+</script>
+
+<script>
+// Row/card click navigation (skip when clicking action controls)
+;(function(){
+  function closest(el, selector){ while(el && el !== document){ if(el.matches && el.matches(selector)) return el; el = el.parentNode; } return null }
+  document.addEventListener('click', function(e){
+    // if click was on an action or inside a link/button, ignore
+    if(closest(e.target, '.actions') || closest(e.target, 'a') || closest(e.target, 'button') || closest(e.target, 'input')) return;
+
+    var row = closest(e.target, 'tr.customer-row');
+    if(row && row.dataset && row.dataset.url){ window.location = row.dataset.url; return; }
+
+    var card = closest(e.target, '.customer-card-item');
+    if(card){
+      // find first anchor inside the card that points to a customer show
+      var a = card.querySelector('a[href]');
+      if(a) window.location = a.href;
+    }
+  }, false);
+})();
+</script>

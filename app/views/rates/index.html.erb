@@ -12,6 +12,29 @@
 .muted.small { color:#64748b; font-size:12px; margin-left:8px }
 .btn.small { margin-left:8px; font-size:12px; padding:4px 8px; border-radius:6px; background:#0ea5a4; color:#fff; text-decoration:none }
 @media(max-width:900px){ .rates-grid{ grid-template-columns:repeat(1,1fr) } }
+
+/* Modern modal styles for Set Rate */
+.rate-modal { display:none; position:fixed; inset:0; z-index:1200; align-items:center; justify-content:center; }
+.rate-modal.open { display:flex; }
+.rate-modal-backdrop { position:absolute; inset:0; background:rgba(2,6,23,0.5); backdrop-filter: blur(4px); opacity:0; transition:opacity .25s ease; }
+.rate-modal.open .rate-modal-backdrop { opacity:1; }
+.rate-modal-panel { position:relative; z-index:1300; width:min(720px,94%); max-height:85vh; overflow:auto; background:linear-gradient(180deg,#fff,#fbfbff); border-radius:12px; box-shadow:0 20px 50px rgba(2,6,23,0.18); border:1px solid rgba(2,6,23,0.06); transform:translateY(12px) scale(.98); opacity:0; transition:transform .28s ease, opacity .28s ease; padding-top:48px; }
+.rate-modal.open .rate-modal-panel { transform:translateY(0) scale(1); opacity:1; }
+.rate-modal-close { position:absolute; top:12px; right:12px; background:#ef4444; color:#fff; border:none; width:32px; height:32px; border-radius:8px; font-size:18px; line-height:1; cursor:pointer; box-shadow:0 6px 18px rgba(14,20,36,0.12); }
+.rate-modal-body { padding:20px 20px 28px 20px; }
+.rate-modal-body { padding:20px; }
+/* Ensure modal action buttons sit on one row */
+.modal-actions { display:flex !important; gap:8px !important; justify-content:flex-end !important; align-items:center !important; flex-wrap:nowrap !important; margin-top:12px !important; }
+.modal-actions a, .modal-actions button, .modal-actions input { display:inline-flex !important; align-items:center !important; }
+/* Make modal action buttons equal width */
+.modal-actions > * { flex: 1 1 0 !important; min-width:100px; max-width:320px; text-align:center; justify-content:center; }
+.modal-actions > a, .modal-actions > button, .modal-actions > input { padding:8px 12px !important; }
+/* Button variants inside modal actions */
+.modal-btn-primary { background:#0ea5a4 !important; color:#fff !important; border:1px solid rgba(0,0,0,0.06) !important; }
+.modal-btn-cancel { background:#dc2626 !important; color:#fff !important; border:1px solid rgba(0,0,0,0.06) !important; }
+/* Modal title and price highlight */
+.rate-modal-title { padding:12px 14px 8px 14px; font-size:16px; font-weight:700; color:#0f172a; border-bottom:1px solid rgba(2,6,23,0.06); }
+.focused-price { border:2px solid #f59e0b !important; box-shadow:0 6px 20px rgba(245,158,11,0.14) !important; background:#fffaf0 !important; }
 </style>
 
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
@@ -53,7 +76,7 @@
                       <% end %>
                     </span>
                   </div>
-                  <div style="display:flex;align-items:center">
+                  <div style="display:flex;align-items:center;gap:8px">
                     <% purity = e[:purity] %>
                     <%# Prefer purity.updated_price for display; fall back to rate if purity has no updated_price %>
                     <% display_price = if purity.respond_to?(:updated_price) && purity.updated_price.present?
@@ -74,7 +97,9 @@
                       <span class="muted">— no rate set</span>
                     <% end %>
 
-                    <%= link_to 'Set Rate', edit_purity_path(purity), class: 'btn small set-rate-link', style: 'background:#ef4444', data: { metal_id: purity.metal_id, purity_id: purity.id } %>
+                    <div class="rate-actions" style="display:flex;align-items:center;gap:8px">
+                      <%= link_to 'Set Rate', edit_purity_path(purity), class: 'btn small set-rate-link', style: 'background:#ef4444', data: { metal_id: purity.metal_id, purity_id: purity.id } %>
+                    </div>
                   </div>
                 </div>
               <% end %>
@@ -164,57 +189,147 @@
   </script>
 
 <!-- Modal container for Set Rate form -->
-<div id="rate-modal" style="display:none;position:fixed;inset:0;z-index:1200;align-items:center;justify-content:center">
-  <div id="rate-modal-backdrop" style="position:absolute;inset:0;background:rgba(2,6,23,0.5)"></div>
-  <div id="rate-modal-panel" style="position:relative;max-width:720px;width:94%;margin:auto;z-index:1300"></div>
+<div class="rate-modal" aria-hidden="true">
+  <div class="rate-modal-backdrop"></div>
+  <div class="rate-modal-panel" role="dialog" aria-modal="true">
+    <button type="button" class="rate-modal-close" aria-label="Close">×</button>
+    <div class="rate-modal-title">Update Price</div>
+    <div class="rate-modal-body"></div>
+  </div>
 </div>
 
 <script>
 (function(){
   function openModalWithUrl(url){
-    var modal = document.getElementById('rate-modal');
-    var panel = document.getElementById('rate-modal-panel');
-    modal.style.display = 'flex';
-    panel.innerHTML = '<div style="padding:28px;background:#fff;border-radius:10px;text-align:center">Loading…</div>';
+    var modal = document.querySelector('.rate-modal');
+    var panel = modal.querySelector('.rate-modal-panel');
+    var body = modal.querySelector('.rate-modal-body');
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    body.innerHTML = '<div style="padding:28px;text-align:center">Loading…</div>';
     fetch(url, { credentials: 'same-origin' }).then(function(resp){ return resp.text(); }).then(function(html){
       // extract the form from the returned HTML
       var tmp = document.createElement('div'); tmp.innerHTML = html;
       var form = tmp.querySelector('form');
-      if(!form){ panel.innerHTML = '<div style="padding:20px;background:#fff;border-radius:8px">Unable to load form.</div>'; return; }
+      if(!form){ body.innerHTML = '<div style="padding:20px;border-radius:8px">Unable to load form.</div>'; return; }
       // remove the submit back link if present
-      panel.innerHTML = '';
-      panel.appendChild(form);
+      body.innerHTML = '';
+      // Ensure form action buttons (Save/Cancel) are grouped and aligned
+      (function(){
+        var submit = form.querySelector('input[type=submit], button[type=submit]');
+        var cancel = null;
+        var candidates = form.querySelectorAll('button, input[type=button], a');
+        Array.prototype.forEach.call(candidates, function(node){
+          var txt = ((node.textContent || node.value) || '').trim().toLowerCase();
+          var cls = (node.className || '').toLowerCase();
+          if(!cancel && (txt === 'cancel' || txt === 'close' || cls.indexOf('cancel') !== -1)){
+            cancel = node;
+          }
+        });
+        var actions = form.querySelector('.modal-actions') || document.createElement('div');
+        actions.className = 'modal-actions';
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'flex-end';
+        actions.style.gap = '8px';
+        actions.style.marginTop = '12px';
+        // Append submit first (left), then cancel (right)
+        if(submit && !actions.contains(submit)){
+          submit.style.display = 'inline-flex';
+          submit.classList.add('modal-btn-primary');
+          actions.appendChild(submit);
+        }
+        if(cancel && !actions.contains(cancel)){
+          // normalize display and style for inline layout
+          cancel.style.display = 'inline-flex';
+          cancel.classList.add('modal-btn-cancel');
+          if(cancel.tagName.toLowerCase() === 'a') cancel.classList.add('btn','small');
+          // intercept cancel to close modal and prevent navigation (stay on current page)
+          try{
+            cancel.addEventListener('click', function(ev){ ev.preventDefault(); var m=document.querySelector('.rate-modal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); } });
+          }catch(e){}
+          actions.appendChild(cancel);
+        }
+        if(!form.querySelector('.modal-actions')){
+          form.appendChild(actions);
+        }
+      })();
 
-      // intercept form submit
+      // Lock all form controls except the price-related textbox so users can only update price
+      (function(){
+        var allowRegex = /price|updated_price|price_per_gram|price_per_g/i;
+        Array.prototype.forEach.call(form.querySelectorAll('input, select, textarea'), function(el){
+          if(!el) return;
+          var t = (el.type || '').toLowerCase();
+          if(t === 'hidden') return; // keep hidden fields (auth token, ids)
+          // keep submit/button and any inputs that match price pattern
+          var name = (el.name || '');
+          var id = (el.id || '');
+          var cls = (el.className || '');
+          if(t === 'submit' || t === 'button' || allowRegex.test(name) || allowRegex.test(id) || allowRegex.test(cls)){
+            el.disabled = false;
+            if(el.tagName.toLowerCase() === 'input' && (t === 'text' || t === 'number')) el.readOnly = false;
+          } else {
+            el.disabled = true;
+            try{ el.setAttribute('aria-disabled','true'); }catch(e){}
+          }
+        });
+      })();
+
+      body.appendChild(form);
+
+      // focus and strongly highlight the price textbox if present (multiple attempts for animations/keyboard)
+      (function(){
+        var priceSelector = 'input[name*="price" i], input[id*="price" i], input[class*="price" i], input[name*="updated_price" i], input[name*="price_per_gram" i]';
+        var priceInput = form.querySelector(priceSelector);
+        if(priceInput){
+          priceInput.classList.add('focused-price');
+          priceInput.disabled = false;
+          try{ priceInput.readOnly = false; }catch(e){}
+          priceInput.setAttribute('tabindex','0');
+          priceInput.setAttribute('autofocus','autofocus');
+          var focusOnce = function(){
+            try{ priceInput.focus({ preventScroll:false }); }catch(e){ try{ priceInput.focus(); }catch(e){} }
+            try{ if(typeof priceInput.select === 'function') priceInput.select(); }catch(e){}
+          };
+          setTimeout(focusOnce, 50);
+          setTimeout(focusOnce, 300);
+          try{ priceInput.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+        }
+      })();
+
+      // intercept form submit and protect against double submits
+      var submitting = false;
       form.addEventListener('submit', function(ev){
         ev.preventDefault();
+        if(submitting) return;
+        submitting = true;
+        var submitButtons = form.querySelectorAll('input[type=submit], button[type=submit]');
+        submitButtons.forEach(function(b){ b.disabled = true; });
         var action = form.getAttribute('action') || window.location.pathname;
         var method = (form.getAttribute('method') || 'post').toUpperCase();
         var fd = new FormData(form);
         fetch(action, { method: method, body: fd, credentials: 'same-origin' }).then(function(r){
-          // on success, redirect to rates page and preserve target via wrapper
           if(window._rates_redirect_replace) window._rates_redirect_replace('<%= j rates_path %>');
           else window.location.href = '<%= j rates_path %>';
         }).catch(function(err){
+          submitting = false;
+          submitButtons.forEach(function(b){ b.disabled = false; });
           alert('Save failed');
         });
       });
     }).catch(function(){
-      panel.innerHTML = '<div style="padding:20px;background:#fff;border-radius:8px">Failed to load.</div>';
+      body.innerHTML = '<div style="padding:20px;border-radius:8px">Failed to load.</div>';
     });
   }
 
   document.addEventListener('click', function(e){
     var a = e.target.closest && e.target.closest('a.set-rate-link');
-    if(!a) return;
-    e.preventDefault();
-    openModalWithUrl(a.href);
+    if(a){ e.preventDefault(); openModalWithUrl(a.href); return; }
+    // close when clicking backdrop or close button
+    if(e.target.classList && (e.target.classList.contains('rate-modal-backdrop') || e.target.classList.contains('rate-modal-close'))){
+      var m = document.querySelector('.rate-modal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+    }
   });
-
-  // close modal on backdrop click or Escape
-  document.addEventListener('click', function(e){
-    if(e.target.id === 'rate-modal-backdrop'){ document.getElementById('rate-modal').style.display='none'; }
-  });
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ var m=document.getElementById('rate-modal'); if(m) m.style.display='none'; } });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ var m=document.querySelector('.rate-modal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); } } });
 })();
 </script>
