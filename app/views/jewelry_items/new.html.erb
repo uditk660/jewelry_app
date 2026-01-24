@@ -61,7 +61,6 @@
 
           <div style="margin-top:14px">
             <%= f.submit 'Create Item', class: 'btn btn-primary' %>
-            <%= link_to 'Cancel', jewelry_items_path, class: 'btn btn-outline' %>
           </div>
         <% end %>
       </div>
@@ -91,47 +90,73 @@
 </div>
 
 <script>
+  // helper: run a callback on DOM ready and on Turbolinks/Turbo navigation
+  window.addReadyListener = function(fn){
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', fn);
+    } else { fn(); }
+    if(typeof Turbolinks !== 'undefined') document.addEventListener('turbolinks:load', fn);
+    if(typeof Turbo !== 'undefined') document.addEventListener('turbo:load', fn);
+  };
+
   // live preview sync for new/edit forms
   (function(){
-    // Disable form fields until metal + purity are selected
-    function setFormEnabled(enabled){
-      const selectors = ['input.form-control:not([readonly])','textarea.form-control','input[type=number]'];
-      const els = document.querySelectorAll(selectors.join(','));
-      els.forEach(el=>{ el.disabled = !enabled; });
-      // keep metal and purity enabled
-      const metalEl = document.querySelector('select[name="jewelry_item[metal_id]"]');
-      const purityEl = document.querySelector('select[name="jewelry_item[purity_id]"]');
-      if(metalEl) metalEl.disabled = false;
-      if(purityEl) purityEl.disabled = false;
-    }
+      // Purity should only be selectable after a Metal is chosen.
+      addReadyListener(function(){
+        const form = document.querySelector('form');
+        if(!form) return;
+        const metalEl = document.querySelector('select[name="jewelry_item[metal_id]"]');
+        const purityEl = document.querySelector('select[name="jewelry_item[purity_id]"]');
+        const skuEl = document.querySelector('input[name="jewelry_item[sku]"]');
+        if(!metalEl || !purityEl) return;
 
-    function bothSelected(){
-      const m = document.querySelector('select[name="jewelry_item[metal_id]"]');
-      const p = document.querySelector('select[name="jewelry_item[purity_id]"]');
-      return m && p && m.value && p.value;
-    }
-
-    // guard submission: prevent creating without both selections
-    document.addEventListener('DOMContentLoaded', function(){
-      const form = document.querySelector('form');
-      if(!form) return;
-      const metalEl = document.querySelector('select[name="jewelry_item[metal_id]"]');
-      const purityEl = document.querySelector('select[name="jewelry_item[purity_id]"]');
-      if(!metalEl || !purityEl){ setFormEnabled(true); return; }
-
-      // initialize
-      setFormEnabled(bothSelected());
-
-      metalEl.addEventListener('change', function(){ setFormEnabled(bothSelected()); });
-      purityEl.addEventListener('change', function(){ setFormEnabled(bothSelected()); });
-
-      form.addEventListener('submit', function(e){
-        if(!bothSelected()){
-          e.preventDefault();
-          alert('Please select both Metal and Purity before creating an item.');
+        // helper: generate SKU of 5 uppercase alphanumeric characters
+        function rndAlnum(n){
+          const _ALNUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          let out=''; for(let i=0;i<n;i++) out += _ALNUM.charAt(Math.floor(Math.random()*_ALNUM.length)); return out;
         }
+        function generateSkuIfEmpty(){
+          if(!skuEl) return;
+          if(skuEl.value && skuEl.value.trim().length) return;
+          skuEl.value = rndAlnum(5);
+          const previewSku = document.getElementById('preview-sku'); if(previewSku) previewSku.textContent = skuEl.value;
+        }
+
+        // Disable all inputs (except metal & purity) until both metal and purity are selected
+        function setFieldsDisabled(disabled){
+          const selector = 'input.form-control, textarea.form-control, select.form-control';
+          const els = form.querySelectorAll(selector);
+          els.forEach(function(el){
+            if(el === metalEl) { el.disabled = false; return; }
+            if(el === purityEl) { el.disabled = !metalEl.value; return; }
+            el.disabled = disabled;
+          });
+          const submit = form.querySelector('input[type="submit"], button[type="submit"]');
+          if(submit) submit.disabled = disabled || !metalEl.value || !purityEl.value;
+        }
+
+        // initialize: purity disabled until metal selected; other fields disabled until both selected
+        purityEl.disabled = !metalEl.value;
+        setFieldsDisabled(true);
+
+        metalEl.addEventListener('change', function(){
+          purityEl.disabled = !metalEl.value;
+          setFieldsDisabled(!(metalEl.value && purityEl.value));
+        });
+
+        purityEl.addEventListener('change', function(){
+          setFieldsDisabled(!(metalEl.value && purityEl.value));
+          if(metalEl.value && purityEl.value){ generateSkuIfEmpty(); }
+        });
+
+        // guard submission: require both selections
+        form.addEventListener('submit', function(e){
+          if(!metalEl.value || !purityEl.value){
+            e.preventDefault();
+            alert('Please select both Metal and Purity before creating an item.');
+          }
+        });
       });
-    });
     function slugify(s){
       return s.toString().toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0,10);
     }
@@ -178,15 +203,8 @@
       if(!skuEl) return;
       // For new form, always prefill SKU if empty. Field is readonly so user can't change it here.
       if(skuEl.value && skuEl.value.trim().length) { previewSku.textContent = skuEl.value; return; }
-      const s = nameEl ? slugify(nameEl.value || '') : '';
-      if(s){
-        const base = s.slice(0,10);
-        const need = 10 - base.length;
-        const suffix = rndAlnum(need);
-        skuEl.value = 'J' + (base + suffix).slice(0,10);
-      } else {
-        skuEl.value = 'J' + rndAlnum(10);
-      }
+      // Produce a concise 5-character uppercase alphanumeric SKU
+      skuEl.value = rndAlnum(5);
       previewSku.textContent = skuEl.value || '—';
     }
 
@@ -226,7 +244,7 @@
         end.to_json.html_safe %>;
         function findPurity(id){ return PURITIES.find(x=>String(x.id) === String(id)); }
 
-        document.addEventListener('DOMContentLoaded', function(){
+        addReadyListener(function(){
           const metalEl = document.querySelector('select[name="jewelry_item[metal_id]"]');
           const purityEl = document.querySelector('select[name="jewelry_item[purity_id]"]');
           const weightEl = document.querySelector('input[name="jewelry_item[weight_grams]"]');
