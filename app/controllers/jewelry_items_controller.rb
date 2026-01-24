@@ -49,9 +49,9 @@ class JewelryItemsController < ApplicationController
 
   def new
     @item = JewelryItem.new
-  @metals = Metal.order(:name)
-  @purities = Purity.order(:name)
-  render template: 'jewelry_items/new'
+    @metals = Metal.order(:name)
+    @purities = Purity.order(:name)
+    render template: 'jewelry_items/new'
   end
 
   def create
@@ -59,17 +59,17 @@ class JewelryItemsController < ApplicationController
     if @item.save
       redirect_to @item
     else
-  @metals = Metal.order(:name)
-  @purities = Purity.order(:name)
-  render template: 'jewelry_items/new'
+      @metals = Metal.order(:name)
+      @purities = Purity.order(:name)
+      render template: 'jewelry_items/new'
     end
   end
 
   def edit
     @item = JewelryItem.find(params[:id])
-  @metals = Metal.order(:name)
-  @purities = Purity.order(:name)
-  render template: 'jewelry_items/edit'
+    @metals = Metal.order(:name)
+    @purities = Purity.order(:name)
+    render template: 'jewelry_items/edit'
   end
 
   def update
@@ -77,9 +77,9 @@ class JewelryItemsController < ApplicationController
     if @item.update(jewelry_item_params)
       redirect_to @item
     else
-  @metals = Metal.order(:name)
-  @purities = Purity.order(:name)
-  render template: 'jewelry_items/edit'
+      @metals = Metal.order(:name)
+      @purities = Purity.order(:name)
+      render template: 'jewelry_items/edit'
     end
   end
 
@@ -92,6 +92,6 @@ class JewelryItemsController < ApplicationController
   private
 
   def jewelry_item_params
-  params.require(:jewelry_item).permit(:name, :description, :price_cents, :sku, :quantity, :metal_id, :purity_id, :jewellery_category_id, :weight_grams)
+    params.require(:jewelry_item).permit(:name, :description, :price_cents, :sku, :quantity, :metal_id, :purity_id, :jewellery_category_id, :weight_grams)
   end
 end
