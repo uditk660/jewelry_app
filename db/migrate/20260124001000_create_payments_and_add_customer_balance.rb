@@ -1,16 +1,6 @@
 class CreatePaymentsAndAddCustomerBalance < ActiveRecord::Migration[5.0]
   def change
-    create_table :payments do |t|
-      t.integer :order_id, null: false
-      t.integer :customer_id
-      t.integer :amount_cents, null: false, default: 0
-      t.string :payment_method
-      t.text :note
-      t.timestamps
-    end
-    add_index :payments, :order_id
-    add_index :payments, :customer_id
-
-    add_column :customers, :balance_cents, :integer, default: 0, null: false
+    # This migration was replaced by 20260124000050_create_payments_and_add_customer_balance.rb
+    # Kept as a noop to preserve history without modifying the schema twice.
   end
 end
