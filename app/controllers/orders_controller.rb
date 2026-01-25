@@ -154,6 +154,8 @@ class OrdersController < ApplicationController
       @order.customer_id = params[:existing_customer_id]
     elsif params[:customer].present?
       cust_attrs = params.require(:customer).permit(:first_name, :last_name, :address, :aadhaar_or_pan, :gst_number, :email, :phone)
+      # Convert blank email to nil so DB unique index on email allows multiple nulls
+      cust_attrs[:email] = nil if cust_attrs[:email].blank?
       # Prefer matching existing customer by phone, then email
       customer = nil
       if cust_attrs[:phone].present?
