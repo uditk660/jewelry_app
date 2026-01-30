@@ -47,6 +47,6 @@ class PuritiesController < ApplicationController
     end
   end
   def purity_params
-    params.require(:purity).permit(:metal_id, :name, :purity_percent, :active, :updated_price, :remarks)
+    params.require(:purity).permit(:metal_id, :name, :purity_percent, :active, :updated_price, :total_weight, :remarks)
   end
 end

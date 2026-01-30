@@ -37,6 +37,10 @@
           <div class="label">Price per gram</div>
           <div class="value"><%= number_to_currency(@purity.updated_price || 0, unit: '₹', precision: 2, delimiter: ',') %></div>
         </div>
+        <div class="detail-col">
+          <div class="label">Total weight (g)</div>
+          <div class="value"><%= number_with_precision(@purity.total_weight || 0, precision: 3) %></div>
+        </div>
       </div>
 
       <div style="margin-top:8px">
