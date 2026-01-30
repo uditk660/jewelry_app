@@ -24,43 +24,43 @@
             </div>
           </div>
 
-          <div class="form-row">
+          <div class="form-row" style="margin-bottom:8px;align-items:center">
             <div style="flex:1">
-              <%= f.label :name %>
-              <%= f.text_field :name, class: 'form-control' %>
+              <strong>Items to create</strong>
+              <div style="color:#64748b;font-size:13px">Add multiple items sharing the selected Metal & Purity.</div>
+            </div>
+            <div style="margin-left:12px">
+              <button type="button" id="add-row" class="btn">Add row</button>
             </div>
           </div>
 
-          <div style="margin-top:10px">
-            <%= f.label :description %>
-            <%= f.text_area :description, rows: 4, class: 'form-control' %>
-          </div>
-
-          <div class="form-row" style="margin-top:10px">
-            <div style="flex:1">
-              <%= f.label :price_cents, 'Price (₹) — computed from purity × weight × qty' %>
-              <%= text_field_tag 'price_rupees', (@item.price.present? ? ('%.2f' % @item.price) : ''), class: 'form-control', id: 'price_rupees', placeholder: 'e.g. 1234.50', readonly: true %>
-              <%= f.hidden_field :price_cents, id: 'price_cents_hidden' %>
-            </div>
-            <div style="width:220px;margin-left:12px">
-              <%= f.label :weight_grams, 'Weight (g)' %>
-              <%= f.number_field :weight_grams, step: 0.01, class: 'form-control' %>
-            </div>
-          </div>
-
-          <div class="form-row" style="margin-top:10px">
-            <div style="flex:1">
-              <%= f.label :sku %>
-              <%= f.text_field :sku, class: 'form-control', readonly: true %>
-            </div>
-            <div style="width:220px;margin-left:12px">
-              <%= f.label :quantity, 'Quantity (pieces)' %>
-              <%= f.number_field :quantity, step: 1, min: 0, class: 'form-control' %>
-            </div>
+          <div style="overflow:auto">
+            <table id="items-table" style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:6px">Name</th>
+                  <th style="text-align:left;padding:6px;width:120px">HUID</th>
+                  <th style="text-align:left;padding:6px;width:120px">Qty</th>
+                  <th style="text-align:left;padding:6px;width:140px">Weight (g)</th>
+                  <th style="text-align:left;padding:6px">Description</th>
+                  <th style="padding:6px;width:48px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="contents">
+                  <td style="padding:6px"><input name="items[][name]" type="text" class="form-control" /></td>
+                  <td style="padding:6px"><input name="items[][sku]" type="text" class="form-control sku-field" /></td>
+                  <td style="padding:6px"><input name="items[][quantity]" type="number" min="0" step="1" value="1" class="form-control" /></td>
+                  <td style="padding:6px"><input name="items[][weight_grams]" type="number" step="0.001" class="form-control" /></td>
+                  <td style="padding:6px"><input name="items[][description]" type="text" class="form-control" /></td>
+                  <td style="padding:6px"><button type="button" class="remove-row btn">X</button></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div style="margin-top:14px">
-            <%= f.submit 'Create Item', class: 'btn btn-primary' %>
+            <%= f.submit 'Create Items', class: 'btn btn-primary' %>
           </div>
         <% end %>
       </div>
@@ -88,6 +88,11 @@
     </div>
   </div>
 </div>
+
+
+
+
+
 
 <script>
   // helper: run a callback on DOM ready and on Turbolinks/Turbo navigation
@@ -126,27 +131,60 @@
         function setFieldsDisabled(disabled){
           const selector = 'input.form-control, textarea.form-control, select.form-control';
           const els = form.querySelectorAll(selector);
-          els.forEach(function(el){
+            els.forEach(function(el){
             if(el === metalEl) { el.disabled = false; return; }
             if(el === purityEl) { el.disabled = !metalEl.value; return; }
             el.disabled = disabled;
           });
+          // determine whether table rows are valid
           const submit = form.querySelector('input[type="submit"], button[type="submit"]');
-          if(submit) submit.disabled = disabled || !metalEl.value || !purityEl.value;
+          try {
+            const rows = document.querySelectorAll('#items-table tbody tr.contents');
+            const rowsValid = Array.prototype.slice.call(rows).every(function(row){
+              const name = (row.querySelector('input[name$="[name]"]')||{}).value || '';
+              const sku = (row.querySelector('input[name$="[sku]"]')||{}).value || '';
+              const qty = (row.querySelector('input[name$="[quantity]"]')||{}).value || '';
+              return name.trim().length > 0 && sku.trim().length > 0 && (parseInt(qty) > 0);
+            });
+            if(submit) submit.disabled = disabled || !metalEl.value || !purityEl.value || !rowsValid;
+          } catch(e){ if(submit) submit.disabled = disabled || !metalEl.value || !purityEl.value; }
         }
+
+        // Expose a global helper so other scripts can re-evaluate submit enablement
+        window.updateJewelryItemSubmitState = function(){
+          const formEl = document.querySelector('form');
+          if(!formEl) return;
+          const submitBtn = formEl.querySelector('input[type="submit"], button[type="submit"]');
+          const metalSel = document.querySelector('select[name="jewelry_item[metal_id]"]');
+          const puritySel = document.querySelector('select[name="jewelry_item[purity_id]"]');
+          let rowsValid = false;
+          try{
+            const rows = document.querySelectorAll('#items-table tbody tr.contents');
+            rowsValid = rows && rows.length>0 && Array.prototype.slice.call(rows).every(function(row){
+              const name = (row.querySelector('input[name$="[name]"]')||{}).value || '';
+              const sku = (row.querySelector('input[name$="[sku]"]')||{}).value || '';
+              const qty = (row.querySelector('input[name$="[quantity]"]')||{}).value || '';
+              return name.trim().length > 0 && sku.trim().length > 0 && (parseInt(qty) > 0);
+            });
+          }catch(e){ rowsValid = false; }
+          if(submitBtn) submitBtn.disabled = !(metalSel && puritySel && metalSel.value && puritySel.value && rowsValid);
+        };
 
         // initialize: purity disabled until metal selected; other fields disabled until both selected
         purityEl.disabled = !metalEl.value;
         setFieldsDisabled(true);
+        if(window.updateJewelryItemSubmitState) window.updateJewelryItemSubmitState();
 
         metalEl.addEventListener('change', function(){
           purityEl.disabled = !metalEl.value;
           setFieldsDisabled(!(metalEl.value && purityEl.value));
+          if(window.updateJewelryItemSubmitState) window.updateJewelryItemSubmitState();
         });
 
         purityEl.addEventListener('change', function(){
           setFieldsDisabled(!(metalEl.value && purityEl.value));
           if(metalEl.value && purityEl.value){ generateSkuIfEmpty(); }
+          if(window.updateJewelryItemSubmitState) window.updateJewelryItemSubmitState();
         });
 
         // guard submission: require both selections
@@ -227,6 +265,108 @@
   maybeGenerateSku();
   updatePreview();
   })();
+</script>
+
+<script>
+  // Multi-row helper: add/remove rows and auto-generate SKUs for new rows
+  addReadyListener(function(){
+    const tbl = document.getElementById('items-table');
+    if(!tbl) return;
+    const tbody = tbl.querySelector('tbody');
+    const addBtn = document.getElementById('add-row');
+    function rndAlnum(n){ const _ALNUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let out=''; for(let i=0;i<n;i++) out += _ALNUM.charAt(Math.floor(Math.random()*_ALNUM.length)); return out; }
+
+    function bindRow(row){
+      const remove = row.querySelector('.remove-row');
+      const nameInput = row.querySelector('input[name$="[name]"]');
+      const skuInput = row.querySelector('.sku-field');
+      const qtyInput = row.querySelector('input[name$="[quantity]"]');
+      if(!skuInput) return;
+      // generate SKU when name is filled and SKU empty
+      nameInput && nameInput.addEventListener('input', function(){ if(!skuInput.value || skuInput.value.trim()==='') skuInput.value = rndAlnum(5); window.updateJewelryItemSubmitState(); });
+      [skuInput, qtyInput].forEach(function(inp){ if(inp) inp.addEventListener('input', window.updateJewelryItemSubmitState); });
+      remove && remove.addEventListener('click', function(){
+        if(tbody.querySelectorAll('tr.contents').length <= 1){
+          // clear fields instead of removing last row
+          row.querySelectorAll('input').forEach(i=>i.value = '');
+        } else { row.remove(); }
+        window.updateJewelryItemSubmitState();
+      });
+    }
+
+    // bind existing row
+    tbody.querySelectorAll('tr.contents').forEach(bindRow);
+
+    // validate a row has required fields filled
+    function isRowValid(row){
+      const name = (row.querySelector('input[name$="[name]"]')||{}).value || '';
+      const sku = (row.querySelector('input[name$="[sku]"]')||{}).value || '';
+      const qty = (row.querySelector('input[name$="[quantity]"]')||{}).value || '';
+      return name.trim().length > 0 && sku.trim().length > 0 && (parseInt(qty) > 0);
+    }
+
+    function allRowsValid(){
+      const rows = tbody.querySelectorAll('tr.contents');
+      if(!rows || rows.length === 0) return false;
+      return Array.prototype.slice.call(rows).every(isRowValid);
+    }
+
+    function updateSubmitState(){
+      const form = document.querySelector('form');
+      const submit = form ? form.querySelector('input[type="submit"], button[type="submit"]') : null;
+      const metalSel = document.querySelector('select[name="jewelry_item[metal_id]"]');
+      const puritySel = document.querySelector('select[name="jewelry_item[purity_id]"]');
+      const enabled = allRowsValid() && metalSel && puritySel && metalSel.value && puritySel.value;
+      if(submit) submit.disabled = !enabled;
+    }
+
+    addBtn && addBtn.addEventListener('click', function(e){
+      // debounce accidental double-clicks
+      const last = parseInt(addBtn.dataset.lastAdd || '0', 10);
+      if(Date.now() - last < 300) return;
+      addBtn.dataset.lastAdd = String(Date.now());
+
+      const rows = tbody.querySelectorAll('tr.contents');
+      const lastRow = rows[rows.length-1];
+      // require last row to be filled before adding a new one
+      if(lastRow && !isRowValid(lastRow)){
+        const firstMissing = lastRow.querySelector('input[name$="[name]"]');
+        if(firstMissing) firstMissing.focus();
+        return;
+      }
+
+      const first = tbody.querySelector('tr.contents');
+      if(!first) return;
+      const clone = first.cloneNode(true);
+      // clear values
+      clone.querySelectorAll('input').forEach(function(i){ i.value = (i.type === 'number') ? '' : ''; });
+      tbody.appendChild(clone);
+      bindRow(clone);
+      // focus the name field of the newly added row
+      const newRows = tbody.querySelectorAll('tr.contents');
+      const newRow = newRows[newRows.length-1];
+      const nameField = newRow.querySelector('input[name$="[name]"]');
+      if(nameField) nameField.focus();
+      window.updateJewelryItemSubmitState();
+    });
+
+    // Preview & price scripts expect single-field names; provide fallbacks pointing to first row
+    (function(){
+      const first = tbody.querySelector('tr.contents');
+      if(!first) return;
+      // If single-field name selectors are missing, create pointer elements for preview scripts
+      if(!document.querySelector('input[name="jewelry_item[name]"]')){
+        const pseudoName = first.querySelector('input[name$="[name]"]');
+        const pseudoDesc = first.querySelector('input[name$="[description]"]') || first.querySelector('textarea[name$="[description]"]');
+        const pseudoWeight = first.querySelector('input[name$="[weight_grams]"]');
+        const pseudoQty = first.querySelector('input[name$="[quantity]"]');
+        const pseudoSku = first.querySelector('input[name$="[sku]"]');
+        // attach input events that update preview elements used earlier
+        function attachPreviewListener(src){ if(!src) return; src.addEventListener('input', function(){ const ev = new Event('input'); document.dispatchEvent(ev); }); }
+        attachPreviewListener(pseudoName); attachPreviewListener(pseudoDesc); attachPreviewListener(pseudoWeight); attachPreviewListener(pseudoQty); attachPreviewListener(pseudoSku);
+      }
+    })();
+  });
 </script>
 
   <script>

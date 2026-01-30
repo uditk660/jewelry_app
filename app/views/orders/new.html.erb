@@ -235,12 +235,12 @@
       <td>
         <select name="line_items[][jewelry_item_id]" class="item-select">${optionsHtml}</select>
       </td>
-      <td><input type="text" name="line_items[][huid]" value="${itemObj.sku||''}" readonly class="huid-field"></td>
+      <td><input type="text" name="line_items[][huid]" value="${itemObj.sku||''}" class="huid-field"></td>
       <td><input type="text" name="line_items[][hsn]" value=""></td>
       <td><input type="number" name="line_items[][quantity]" value="1" min="1" class="qty"></td>
       <td><input type="number" name="line_items[][gross_weight]" value="" step="0.01"></td>
       <td><input type="number" name="line_items[][net_weight]" value="${itemObj.weight_grams || ''}" step="0.01" class="net-weight"></td>
-      <td><input type="number" name="line_items[][rate]" value="${((itemObj.effective_price_per_gram || itemObj.price || 0) * (itemObj.weight_grams || 0) * 1).toFixed(2)}" readonly class="rate-field"><span class="price-cell" style="display:none"></span></td>
+      <td><input type="number" name="line_items[][rate]" value="${(0).toFixed(2)}" class="rate-field"><span class="price-cell" style="display:none"></span></td>
       <td>
         <input type="number" name="line_items[][making_charge_percent]" value="0" step="0.01" class="making-percent">
         <input type="hidden" name="line_items[][making_charge]" value="0" class="making-rupee">
@@ -278,7 +278,7 @@
           if(huidInput) huidInput.value = it.sku || '';
           if(hsnInput) hsnInput.value = it.hsn || '';
           if(netInput) netInput.value = netVal;
-          if(rateInput) rateInput.value = (perGram * netVal * q).toFixed(2);
+            if(rateInput && !rateInput.dataset.manual){ const cur = parseFloat(rateInput.value) || 0; if(cur === 0) rateInput.value = perGram.toFixed(2); }
           if(priceCell) priceCell.textContent = money(perGram) + ' /g';
           if(lineTotal) lineTotal.textContent = money(perGram * netVal * q);
         }
@@ -295,6 +295,15 @@
       });
     }
 
+    // wire rate input to mark manual edits so auto-fill won't override them
+    const rateInputRow = row.querySelector('input[name="line_items[][rate]"]') || row.querySelector('.rate-field') || row.querySelector('.rate');
+    if(rateInputRow){
+      rateInputRow.addEventListener('input', function(){
+        try{ this.dataset.manual = '1'; }catch(e){}
+        try{ recalc(); updateSubmitButtons(); }catch(e){}
+      });
+    }
+
     qty && qty.addEventListener('input', function(){
       const idVal = hiddenId ? hiddenId.value : (select ? select.value : null);
       const it = items.find(x => String(x.id) == String(idVal));
@@ -303,7 +312,7 @@
       const q = parseInt(qty.value || 0) || 0;
       const perGram = it ? parseFloat(it.effective_price_per_gram || it.price || 0) : 0;
       if(lineTotal && (perGram || q || net)) lineTotal.textContent = money(perGram * net * q);
-      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
+      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput && !rateInput.dataset.manual){ const cur = parseFloat(rateInput.value) || 0; if(cur === 0) rateInput.value = perGram.toFixed(2); }
       recalc();
     });
     const netEl = row.querySelector('input[name="line_items[][net_weight]"]');
@@ -314,7 +323,7 @@
       const q = parseInt((row.querySelector('.qty')||{value:1}).value || 1) || 0;
       const perGram = it ? parseFloat(it.effective_price_per_gram || it.price || 0) : 0;
       if(lineTotal) lineTotal.textContent = money(perGram * net * q);
-      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
+      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput && !rateInput.dataset.manual){ const cur = parseFloat(rateInput.value) || 0; if(cur === 0) rateInput.value = perGram.toFixed(2); }
       recalc();
     });
     const rem = row.querySelector('.remove'); if(rem) rem.addEventListener('click', function(){
@@ -390,7 +399,10 @@
       const idVal = idInput ? idInput.value : (select ? select.value : null);
       const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0) || 0;
       const netInput = r.querySelector('input[name^="line_items"][name$="[net_weight]"]') || r.querySelector('.net-weight');
+      const rateInput = r.querySelector('input[name="line_items[][rate]"]') || r.querySelector('.rate-field') || r.querySelector('.rate');
       const net = parseFloat((netInput && netInput.value) || 0) || 0;
+      const explicitRate = rateInput ? (parseFloat(rateInput.value) || 0) : 0;
+      const isManualRate = rateInput ? String(rateInput.dataset.manual) === '1' : false;
       // read making as percent and compute rupee amount for submission
       const makingPercentEl = r.querySelector('input[name^="line_items"][name$="[making_charge_percent]"]');
       const makingPercent = parseFloat((makingPercentEl||{value:0}).value || 0) || 0;
@@ -401,14 +413,14 @@
       const addPerItem = parseFloat((addEl||{value:0}).value || 0) || 0;
       if(it){
         const perGram = parseFloat(it.effective_price_per_gram || it.price || 0) || 0;
-        const baseAmount = perGram * net * qty;
+        const effectiveRate = (isManualRate || explicitRate > 0) ? explicitRate : perGram;
+        const baseAmount = effectiveRate * net * qty;
         const making = baseAmount * (makingPercent/100.0);
         const makingHidden = r.querySelector('input[name^="line_items"][name$="[making_charge]"]');
         if(makingHidden) makingHidden.value = making.toFixed(2);
         const addTotal = addPerItem * qty;
         lineAmount = baseAmount + (isNaN(making) ? 0 : making) + addTotal;
-        const rateInput = r.querySelector('input[name="line_items[][rate]"]');
-        if(rateInput) rateInput.value = (perGram * net * qty).toFixed(2);
+        if(rateInput && !rateInput.dataset.manual){ const cur = parseFloat(rateInput.value) || 0; if(cur === 0) rateInput.value = perGram.toFixed(2); }
       } else {
         const making = 0;
         const makingHidden = r.querySelector('input[name^="line_items"][name$="[making_charge]"]');
@@ -441,59 +453,14 @@
 
   // client-side validation: require customer (existing or new) and at least one item
   function showFormError(msg){
-    let err = document.getElementById('form-error');
-    if(!err){
-      err = document.createElement('div'); err.id = 'form-error';
-      err.style = 'background:#fff8e6;border:1px solid #f5e0b7;padding:10px;margin-bottom:12px;color:#7a5a00';
-      const form = document.getElementById('order-form');
-      form && form.parentNode.insertBefore(err, form);
-    }
-    err.textContent = msg;
-    window.scrollTo({top:0,behavior:'smooth'});
-  }
-
-  function clearFormError(){
-    const err = document.getElementById('form-error'); if(err) err.remove();
-  }
-
-  function validateForm(){
     clearFormError();
-    const existingEl = document.getElementById('existing_customer_id');
-    const existing = existingEl ? existingEl.value : '';
-    const toggle = document.getElementById('toggle-new-customer');
-    if(!existing && (!toggle || !toggle.checked)){
-      showFormError('Please select an existing customer or add a new customer.');
-      return false;
-    }
-      if(toggle && toggle.checked){
-      const fnameEl = document.querySelector('input[name="customer[first_name]"]');
-      const phoneEl = document.querySelector('input[name="customer[phone]"]');
-      const fname = fnameEl ? fnameEl.value.trim() : '';
-      const phone = phoneEl ? phoneEl.value.trim() : '';
-      const phoneDigits = phone.replace(/\D/g,'');
-      if(!fname || !phone){
-        showFormError('Please fill first name and phone for the new customer.');
-        return false;
-      }
-      if(phoneDigits.length !== 10){
-        showFormError('Phone must be exactly 10 digits.');
-        return false;
-      }
-    }
-    // ensure at least one item and qty > 0
-    const rows = tbody ? tbody.querySelectorAll('tr') : [];
-    if(rows.length === 0){ showFormError('Please add at least one item to the order.'); return false; }
-    for(const r of rows){
-      const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0);
-  const idInput = r.querySelector('input.item-id-hidden');
-  const sel = idInput ? idInput : r.querySelector('.item-select');
-      const nweightEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
-      const weight = nweightEl ? parseFloat(nweightEl.value || 0) : 0;
-      if(!sel || !sel.value){ showFormError('Please choose an item for each row.'); return false; }
-      if(qty <= 0){ showFormError('Quantity must be at least 1 for each item.'); return false; }
-      if(!weight || weight <= 0 || isNaN(weight)){ showFormError('Net weight must be provided and greater than 0 for each item.'); return false; }
-    }
-    return true;
+    const err = document.createElement('div');
+    err.id = 'form-error';
+    err.style.color = 'red';
+    err.style.margin = '8px 0';
+    err.textContent = msg || 'Please correct the form errors.';
+    const form = document.getElementById('order-form');
+    if(form && form.parentNode) form.parentNode.insertBefore(err, form);
   }
 
   // quick, non-UI validation used to toggle the disabled state of Create buttons

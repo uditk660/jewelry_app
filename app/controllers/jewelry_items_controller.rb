@@ -55,6 +55,54 @@ class JewelryItemsController < ApplicationController
   end
 
   def create
+    # Support batch creation via params[:items] (array of hashes) with shared metal_id/purity_id
+    if params[:items].present?
+      # shared metal/purity are submitted under the `jewelry_item` form namespace
+      if params[:jewelry_item].present?
+        shared = params.require(:jewelry_item).permit(:metal_id, :purity_id, :jewellery_category_id).to_h
+      else
+        shared = params.permit(:metal_id, :purity_id, :jewellery_category_id).to_h
+      end
+      # permit each item hash explicitly
+      permitted_items = (params[:items] || []).map do |it|
+        ActionController::Parameters.new(it).permit(:name, :sku, :quantity, :weight_grams, :description).to_h
+      end
+      created = []
+      errors = []
+      JewelryItem.transaction do
+        permitted_items.each_with_index do |it, idx|
+          attrs = it.to_h.merge(shared)
+          # normalize numeric values
+          attrs['quantity'] = attrs['quantity'].to_i if attrs.key?('quantity')
+          attrs['weight_grams'] = attrs['weight_grams'].present? ? attrs['weight_grams'].to_f : nil
+          # ensure SKU present (generate if blank)
+          if attrs['sku'].blank?
+            attrs['sku'] = SecureRandom.alphanumeric(5).upcase
+          end
+          ji = JewelryItem.new(attrs)
+          unless ji.save
+            errors << "Row #{idx + 1}: #{ji.errors.full_messages.join(', ')}"
+            raise ActiveRecord::Rollback
+          end
+          created << ji
+        end
+      end
+
+      if errors.empty?
+        if created.size == 1
+          redirect_to created.first and return
+        else
+          redirect_to jewelry_items_path, notice: "Created #{created.size} items" and return
+        end
+      else
+        flash.now[:error] = errors.join(' ; ')
+        @metals = Metal.order(:name)
+        @purities = Purity.order(:name)
+        @item = JewelryItem.new
+        render template: 'jewelry_items/new' and return
+      end
+    end
+
     @item = JewelryItem.new(jewelry_item_params)
     if @item.save
       redirect_to @item

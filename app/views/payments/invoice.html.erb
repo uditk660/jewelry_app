@@ -92,24 +92,34 @@
         <table>
           <% if @payment.order.present? %>
             <% order = @payment.order %>
+            <% # compute subtotal using stored line rate or per_gram price and include making + additional charges %>
             <% subtotal = order.line_items.to_a.sum do |li|
-                 (li.respond_to?(:line_amount) ? li.line_amount.to_f : (li.net_weight.to_f * li.quantity.to_i * (li.price_cents.to_f/100.0) + li.making_charge.to_f))
+                 per_gram = if li.respond_to?(:per_gram_price) && li.per_gram_price.to_f > 0
+                              li.per_gram_price.to_f
+                            elsif li.jewelry_item && li.jewelry_item.respond_to?(:effective_price_per_gram)
+                              li.jewelry_item.effective_price_per_gram.to_f
+                            else
+                              (li.price_cents.to_f / 100.0)
+                            end
+                 stored_rate = li.respond_to?(:rate) ? li.rate.to_f : 0.0
+                 display_rate = (stored_rate && stored_rate > 0) ? stored_rate : per_gram
+                 qty = li.quantity.to_i
+                 net_w = li.net_weight.to_f
+                 add_per_item = li.respond_to?(:additional_charge) ? li.additional_charge.to_f : 0.0
+                 (display_rate * net_w * qty) + (li.making_charge.to_f || 0.0) + (add_per_item * qty)
                end %>
             <% taxable_amount = subtotal - (order.discount.to_f || 0.0) + (order.charges.to_f || 0.0) %>
-            <% if order.respond_to?(:cgst_cents) && order.cgst_cents.to_i > 0 %>
-              <% cgst_amt = order.cgst_cents.to_f/100.0 %>
-            <% else %>
-              <% cgst_amt = taxable_amount * (order.respond_to?(:cgst_rate) ? order.cgst_rate.to_f/100.0 : 0.015) %>
-            <% end %>
-            <% if order.respond_to?(:igst_cents) && order.igst_cents.to_i > 0 %>
-              <% igst_amt = order.igst_cents.to_f/100.0 %>
-            <% else %>
-              <% igst_amt = taxable_amount * (order.respond_to?(:igst_rate) ? order.igst_rate.to_f/100.0 : 0.015) %>
-            <% end %>
+            <% # compute taxes from taxable_amount (1.5% each) to match order views %>
+            <% cgst_rate = 1.5 %>
+            <% igst_rate = 1.5 %>
+            <% cgst_amt = taxable_amount * (cgst_rate / 100.0) %>
+            <% igst_amt = taxable_amount * (igst_rate / 100.0) %>
             <% total = taxable_amount + cgst_amt + igst_amt %>
             <% rounded_total = total.round(0) %>
-            <% paid_total = order.payments.sum(:amount_cents).to_f/100.0 %>
-            <% remaining = [0, (rounded_total - paid_total)].max %>
+            <% payments_cents = order.payments.sum(:amount_cents).to_i %>
+            <% paid_total = payments_cents.to_f / 100.0 %>
+            <% total_payable_cents = (total * 100.0).round %>
+            <% remaining = [total_payable_cents - payments_cents, 0].max.to_f / 100.0 %>
 
             <tr>
               <td style="padding:6px">Gross Total</td>
