@@ -137,7 +137,15 @@ class OrdersController < ApplicationController
 
   def invoice
     @order = Order.find(params[:id])
-  render template: 'orders/invoice', layout: 'application'
+    respond_to do |format|
+      format.html { render template: 'orders/invoice', layout: 'application' }
+      format.pdf do
+        render pdf: "invoice_#{@order.id}",
+               template: 'orders/invoice',
+               layout: 'pdf',
+               disposition: 'inline'
+      end
+    end
   end
 
   def new

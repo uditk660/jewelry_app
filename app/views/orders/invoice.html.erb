@@ -113,10 +113,16 @@
   <!-- QR + CERT -->
   <div style="text-align:right;font-size:12px">
     <% begin %>
-      <% qr_text = request.original_url rescue order_url(@order) %>
+      <%# Generate a short-lived signed URL that serves the invoice PDF without requiring login %>
+      <% begin %>
+        <% token = Rails.application.message_verifier(:invoices).generate({ order_id: @order.id, exp: 7.days.from_now.to_i }) %>
+        <% qr_text = public_invoice_url(token: token, format: :pdf) %>
+      <% rescue => _e %>
+        <% qr_text = request.original_url rescue order_url(@order) %>
+      <% end %>
       <% q = RQRCode::QRCode.new(qr_text) %>
-      <div style="display:inline-block;padding:4px;border:1px solid #000;margin-bottom:6px">
-        <%= raw q.as_svg(module_size: 2, standalone: true) %>
+      <div style="display:inline-block;padding:2px;border:1px solid #000;margin-bottom:6px;width:74px;height:74px;overflow:hidden">
+        <%= raw q.as_svg(module_size: 1.1, standalone: true) %>
       </div>
     <% rescue %>
     <% end %>
@@ -295,7 +301,7 @@
   <!-- Left: show Paid / Remaining (left aligned) -->
   <div style="font-size:13px;line-height:1.4;margin-top:12px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div><strong>Total Paid (कुल राशि)</strong></div>
+      <div><strong>Total Paid (जमा राशि)</strong></div>
       <div style="font-weight:700;text-align:right">₹<%= '%.2f' % paid_total %></div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">

@@ -29,6 +29,10 @@ gem 'jquery-rails'
 # QR code generation for invoices
 gem 'rqrcode'
 
+# PDF generation for invoices (renders HTML as PDF)
+gem 'wicked_pdf'
+gem 'wkhtmltopdf-binary'
+
 # Authentication
 gem 'devise', '~> 4.8'
 
