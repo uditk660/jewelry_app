@@ -3,7 +3,8 @@ class PublicInvoicesController < ApplicationController
   skip_before_action :authenticate_user!
 
   def show
-    token = params[:token]
+    # strip potential format suffix (e.g. token.pdf) when routed via public URL
+    token = params[:token].to_s.sub(/\.(pdf|html)\z/, '')
     verifier = Rails.application.message_verifier(:invoices)
     payload = verifier.verify(token)
 
@@ -27,7 +28,8 @@ class PublicInvoicesController < ApplicationController
                disposition: 'inline'
       end
     end
-  rescue ActiveSupport::MessageVerifier::InvalidSignature, ActiveSupport::MessageVerifier::InvalidMessage
+  rescue => e
+    Rails.logger.info "PublicInvoicesController#show invalid token or error: #{e.class} #{e.message}"
     head :not_found
   end
 end
