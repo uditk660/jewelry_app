@@ -15,7 +15,8 @@ class LineItem < ActiveRecord::Base
     base = (price_cents * quantity)
     making_c = (making_charge.to_f * 100).to_i
     additional_c = ((additional_charge.to_f * 100).to_i * quantity)
-    base + making_c + additional_c
+    # Prefer computed line amount (uses stored per-line `rate` when present)
+    line_amount_cents
   end
 
   def total
@@ -34,7 +35,8 @@ class LineItem < ActiveRecord::Base
 
   # Compute the line amount as: per_gram_price * net_weight * quantity + making_charge
   def line_amount
-    per_gram = per_gram_price || 0.0
+    # Prefer an explicitly stored per-line `rate` when present (editable per-gram rate).
+    per_gram = (self.respond_to?(:rate) && self.rate.to_f > 0) ? self.rate.to_f : (per_gram_price || 0.0)
     net = self.net_weight.to_f || 0.0
     qty = self.quantity.to_i || 0
     making = self.making_charge.to_f || 0.0

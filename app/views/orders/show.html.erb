@@ -23,9 +23,6 @@
 
     <div class="header-actions">
       <%= link_to 'Back to Orders', orders_path, class: 'btn btn-secondary' %>
-      <% if @order.status == 'pending' %>
-        <%= link_to 'Record Payment', '#charge-form', class: 'btn btn-primary' %>
-      <% end %>
     </div>
   </header>
 
@@ -51,15 +48,15 @@
       <tbody>
         <% subtotal_calc = 0.0 %>
         <% @order.line_items.each do |li| %>
-          <% per_gram = (li.jewelry_item.respond_to?(:effective_price_per_gram) ? li.jewelry_item.effective_price_per_gram.to_f : nil) %>
-          <% per_line = if per_gram && li.net_weight.to_f > 0 && li.quantity.to_i > 0
-                          per_gram * li.net_weight.to_f * li.quantity.to_i
-                        else
-                          li.rate.to_f
-                        end %>
-          <% add_per_item = li.respond_to?(:additional_charge) ? li.additional_charge.to_f : 0.0 %>
-          <% add_total = add_per_item * li.quantity.to_i %>
-          <% line_total = per_line + li.making_charge.to_f + add_total %>
+            <% per_gram = (li.jewelry_item.respond_to?(:effective_price_per_gram) ? li.jewelry_item.effective_price_per_gram.to_f : nil) %>
+            <% stored_rate = li.respond_to?(:rate) ? li.rate.to_f : 0.0 %>
+            <% net_w = li.net_weight.to_f %>
+            <% qty = li.quantity.to_i %>
+            <% display_rate = (stored_rate && stored_rate > 0) ? stored_rate : (per_gram || 0.0) %>
+            <% base_amount = (display_rate * net_w * qty) %>
+            <% add_per_item = li.respond_to?(:additional_charge) ? li.additional_charge.to_f : 0.0 %>
+            <% add_total = add_per_item * qty %>
+            <% line_total = base_amount + li.making_charge.to_f + add_total %>
           <% subtotal_calc += line_total %>
           <tr>
             <td class="item-name"><%= li.jewelry_item.name %></td>
@@ -68,7 +65,7 @@
             <td class="center"><%= li.quantity %></td>
             <td class="right"><%= '%.2f' % li.gross_weight.to_f %></td>
             <td class="right"><%= '%.2f' % li.net_weight.to_f %></td>
-            <td class="right"><%= '%.2f' % per_line %></td>
+            <td class="right"><%= '%.2f' % display_rate %></td>
             <td class="right"><%= '%.2f' % li.making_charge.to_f %></td>
             <td class="right"><%= '%.2f' % add_per_item %></td>
             <td class="right total-cell">
@@ -130,11 +127,14 @@
           ₹<%= '%.2f' % (taxable_calc + cgst_amt + igst_amt) %>
         </strong>
       </div>
-      <%# show remaining due if any (server-side computed) %>
-      <% if @order.respond_to?(:remaining_cents) && @order.remaining_cents.to_i > 0 %>
+      <%# compute remaining due from total_payable minus recorded payments (safer than trusting a stored remaining_cents) %>
+      <% total_payable_cents = ((taxable_calc + cgst_amt + igst_amt) * 100.0).round %>
+      <% payments_cents = (@order.respond_to?(:payments) ? @order.payments.sum(:amount_cents).to_i : 0) %>
+      <% remaining_cents_display = [total_payable_cents - payments_cents, 0].max %>
+      <% if remaining_cents_display > 0 %>
         <div class="summary-row muted">
           <span>Remaining Due</span>
-          <span>₹<%= '%.2f' % (@order.remaining_cents.to_f / 100.0) %></span>
+          <span>₹<%= '%.2f' % (remaining_cents_display.to_f / 100.0) %></span>
         </div>
       <% end %>
     </aside>
@@ -186,8 +186,10 @@
 
             <div>
               <label>Payment Amount</label>
-              <%# show remaining by default %>
-              <% remaining = (@order.respond_to?(:remaining_cents) ? @order.remaining_cents : nil) || 0 %>
+              <%# compute remaining amount in cents from total_payable minus payments (prefer this authoritative calculation) %>
+              <% total_payable_cents = ((taxable_calc + cgst_amt + igst_amt) * 100.0).round %>
+              <% payments_cents = (@order.respond_to?(:payments) ? @order.payments.sum(:amount_cents).to_i : 0) %>
+              <% remaining = [total_payable_cents - payments_cents, 0].max %>
               <input type="number" name="payment_amount" id="payment_amount_input" step="0.01" min="0" max="<%= (remaining.to_f/100.0).round(2) %>" style="width:200px" value="<%= (remaining.to_f/100.0).round(2) %>">
               <div id="payment-amount-hint" style="font-size:12px;color:#666;margin-top:4px">Enter full or partial amount. Remaining will update after recording payment.</div>
             </div>
@@ -261,6 +263,8 @@
   function money(v){ return '\u20B9' + v.toFixed(2); }
   const subtotal = <%= subtotal_calc %>;
   const charges = <%= @order.charges.to_f %>;
+  const initialPaymentsCents = <%= (@order.respond_to?(:payments) ? @order.payments.sum(:amount_cents).to_i : 0) %>;
+  const hasRecordedRemaining = <%= (@order.respond_to?(:remaining_cents) && @order.remaining_cents.to_i > 0) ? 'true' : 'false' %>;
 
   function update(){
     const type = document.getElementById('discount-type').value;
@@ -289,6 +293,15 @@
     document.getElementById('igst-amount').textContent = money(igst);
     document.getElementById('taxable-display').textContent = money(taxable);
     document.getElementById('total-display').textContent = money(taxable + cgst + igst);
+    // if there were no prior payments and no stored remaining, keep payment input synced to total payable
+    try{
+      const payInput = document.getElementById('payment_amount_input');
+      if(payInput && initialPaymentsCents === 0 && !hasRecordedRemaining){
+        const totalPayable = (taxable + cgst + igst);
+        payInput.value = totalPayable.toFixed(2);
+        payInput.max = totalPayable.toFixed(2);
+      }
+    }catch(e){}
     // update hidden discount in rupees for server submission
     const discountHidden = document.getElementById('discount_hidden');
     if(discountHidden) discountHidden.value = discountAmt.toFixed(2);

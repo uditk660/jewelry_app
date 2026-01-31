@@ -12,6 +12,7 @@ class JewelryItem < ActiveRecord::Base
   belongs_to :jewellery_category, optional: true
 
   before_validation :set_sku, on: :create
+  before_validation :normalize_weight_grams
 
   scope :available_for_sale, -> { where('quantity > 0') }
 
@@ -27,6 +28,19 @@ class JewelryItem < ActiveRecord::Base
     end
     # fallback deterministic-ish SKU (should be rare)
     self.sku ||= "J#{SecureRandom.alphanumeric(10).upcase}"
+  end
+
+  # Normalize incoming weight values so DB never receives an empty string or nil
+  # - convert string inputs to floats
+  # - treat blank/empty as 0.0 to avoid DB NOT NULL constraint errors
+  def normalize_weight_grams
+    if weight_grams.is_a?(String)
+      v = weight_grams.strip
+      self.weight_grams = v.present? ? v.to_f : 0.0
+    elsif weight_grams.nil?
+      # ensure a numeric value is present (database currently disallows NULL)
+      self.weight_grams = 0.0
+    end
   end
 
   def price
@@ -46,7 +60,7 @@ class JewelryItem < ActiveRecord::Base
   # Compute item price from purity price per gram * weight_grams where available,
   # otherwise fall back to stored item price
   def computed_price
-    if effective_price_per_gram && weight_grams.present?
+    if effective_price_per_gram && weight_grams.to_f > 0
       (effective_price_per_gram * weight_grams.to_f).round(2)
     else
       price.to_f

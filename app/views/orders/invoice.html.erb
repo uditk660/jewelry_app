@@ -113,10 +113,16 @@
   <!-- QR + CERT -->
   <div style="text-align:right;font-size:12px">
     <% begin %>
-      <% qr_text = request.original_url rescue order_url(@order) %>
+      <%# Generate a short-lived signed URL that serves the invoice PDF without requiring login %>
+      <% begin %>
+        <% token = Rails.application.message_verifier(:invoices).generate({ order_id: @order.id, exp: 7.days.from_now.to_i }) %>
+        <% qr_text = public_invoice_url(token: token, format: :pdf) %>
+      <% rescue => _e %>
+        <% qr_text = request.original_url rescue order_url(@order) %>
+      <% end %>
       <% q = RQRCode::QRCode.new(qr_text) %>
-      <div style="display:inline-block;padding:4px;border:1px solid #000;margin-bottom:6px">
-        <%= raw q.as_svg(module_size: 2, standalone: true) %>
+      <div style="display:inline-block;padding:2px;border:1px solid #000;margin-bottom:6px;width:74px;height:74px;overflow:hidden">
+        <%= raw q.as_svg(module_size: 1.1, standalone: true) %>
       </div>
     <% rescue %>
     <% end %>
@@ -176,12 +182,20 @@
 <% subtotal = 0 %>
 
 <% @order.line_items.each_with_index do |li, i| %>
-  <%# prefer model helper line_amount (per_gram * net * qty + making), fall back to previous formula if absent %>
-  <% line = if li.respond_to?(:line_amount)
-               li.line_amount.to_f
-             else
-               (li.net_weight.to_f * li.quantity.to_i * (li.price_cents.to_f / 100.0)) + li.making_charge.to_f
-             end %>
+  <%# compute per-gram rate: prefer stored line `rate`, else model per_gram_price or item's effective per-gram price, else fallback to price_cents/100.0 %>
+  <% per_gram = if li.respond_to?(:per_gram_price) && li.per_gram_price.to_f > 0
+                  li.per_gram_price.to_f
+                elsif li.jewelry_item && li.jewelry_item.respond_to?(:effective_price_per_gram)
+                  li.jewelry_item.effective_price_per_gram.to_f
+                else
+                  (li.price_cents.to_f / 100.0)
+                end %>
+  <% stored_rate = li.respond_to?(:rate) ? li.rate.to_f : 0.0 %>
+  <% display_rate = (stored_rate && stored_rate > 0) ? stored_rate : per_gram %>
+  <% qty = li.quantity.to_i %>
+  <% net_w = li.net_weight.to_f %>
+  <% add_per_item = li.respond_to?(:additional_charge) ? li.additional_charge.to_f : 0.0 %>
+  <% line = (display_rate * net_w * qty) + (li.making_charge.to_f || 0.0) + (add_per_item * qty) %>
   <% subtotal += line %>
 <tr>
   <td style="border:1px solid #000;text-align:center"><%= i+1 %></td>
@@ -189,18 +203,18 @@
   <% huid_val = li.huid.present? ? li.huid : (li.jewelry_item.try(:sku).present? ? li.jewelry_item.try(:sku) : '-') %>
   <% hsn_val = li.hsn.present? ? li.hsn : (li.jewelry_item.try(:hsn).present? ? li.jewelry_item.try(:hsn) : '-') %>
   <td style="border:1px solid #000;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px">
-    <span title="<%= h(huid_val) %>" style="font-size:8px;line-height:1.1"><%= huid_val %></span>
+    <span title="<%= h(huid_val) %>" style="line-height:1.1"><%= huid_val %></span>
   </td>
   <td style="border:1px solid #000;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60px">
     <span title="<%= h(hsn_val) %>"><%= hsn_val %></span>
   </td>
   <td style="border:1px solid #000;text-align:center"><%= li.quantity %></td>
-  <td style="border:1px solid #000;text-align:center"><%= li.gross_weight %></td>
-  <td style="border:1px solid #000;text-align:center"><%= li.net_weight %></td>
-  <%# show rate as per-gram price (model exposes per_gram_price) %>
-  <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % (li.respond_to?(:per_gram_price) ? li.per_gram_price.to_f : (li.price_cents.to_f/100.0)) %></td>
-  <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % li.making_charge %></td>
-  <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % (li.additional_charge.to_f) %></td>
+  <td style="border:1px solid #000;text-align:center"><%= '%.2f' % li.gross_weight.to_f %></td>
+  <td style="border:1px solid #000;text-align:center"><%= '%.2f' % li.net_weight.to_f %></td>
+  <%# show rate as per-gram price (prefer stored rate then per_gram) %>
+  <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % display_rate %></td>
+  <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % li.making_charge.to_f %></td>
+  <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % add_per_item %></td>
   <td style="border:1px solid #000;text-align:right;padding-right:6px;font-weight:700">₹<%= '%.2f' % line %></td>
 </tr>
 <% end %>
@@ -208,7 +222,16 @@
 </table>
 
 <!-- Paid via / payment method (styled) -->
-<div style="display:flex;justify-content:flex-start;margin-top:8px;font-size:13px">
+<%# Precompute totals here so we can render amount-in-words next to the payment info %>
+<% gross_total = subtotal %>
+<% taxable_amount = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
+<% cgst_rate = 1.5; igst_rate = 1.5 %>
+<% cgst_amt = taxable_amount * (cgst_rate / 100.0) %>
+<% igst_amt = taxable_amount * (igst_rate / 100.0) %>
+<% total = taxable_amount + cgst_amt + igst_amt %>
+<% rounded_total = total.round(0) %>
+
+<div style="display:flex;justify-content:flex-start;margin-top:8px;font-size:13px;gap:24px;align-items:flex-start">
   <div style="border:none;padding:6px 10px;min-width:200px;text-align:left;background:#fafafa">
     <div style="font-size:11px;color:#555;line-height:1">Paid via</div>
     <div style="font-weight:700;font-size:14px;line-height:1.1;color:#000">
@@ -218,6 +241,11 @@
         Not specified
       <% end %>
     </div>
+  </div>
+
+  <div style="min-width:360px;padding:6px 10px">
+    <strong>Amount (in words):</strong>
+    <div style="margin-top:6px;font-weight:700;text-transform:capitalize"><%= number_to_words(rounded_total) %></div>
   </div>
 </div>
 
@@ -255,35 +283,29 @@
 <%# Precompute totals so we can show paid/remaining on the left without changing layout %>
 <% gross_total = subtotal %>
 <% taxable_amount = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
-<% if @order.respond_to?(:cgst_cents) && @order.cgst_cents.to_i > 0 %>
-  <% cgst_amt = (@order.cgst_cents.to_f / 100.0) %>
-  <% cgst_rate = @order.respond_to?(:cgst_rate) ? @order.cgst_rate.to_f : (@order.respond_to?(:cgst_rate_or_default) ? @order.cgst_rate_or_default : 1.5) %>
-<% else %>
-  <% cgst_rate = @order.respond_to?(:cgst_rate_or_default) ? @order.cgst_rate_or_default : 1.5 %>
-  <% cgst_amt = taxable_amount * (cgst_rate / 100.0) %>
-<% end %>
-<% if @order.respond_to?(:igst_cents) && @order.igst_cents.to_i > 0 %>
-  <% igst_amt = (@order.igst_cents.to_f / 100.0) %>
-  <% igst_rate = @order.respond_to?(:igst_rate) ? @order.igst_rate.to_f : (@order.respond_to?(:igst_rate_or_default) ? @order.igst_rate_or_default : 1.5) %>
-<% else %>
-  <% igst_rate = @order.respond_to?(:igst_rate_or_default) ? @order.igst_rate_or_default : 1.5 %>
-  <% igst_amt = taxable_amount * (igst_rate / 100.0) %>
-<% end %>
+<%# Always compute CGST/SGST from the taxable amount here to match the order show page calculations %>
+<% cgst_rate = 1.5 %>
+<% igst_rate = 1.5 %>
+<% cgst_amt = taxable_amount * (cgst_rate / 100.0) %>
+<% igst_amt = taxable_amount * (igst_rate / 100.0) %>
 <% total = taxable_amount + cgst_amt + igst_amt %>
 <% rounded_total = total.round(0) %>
-<% paid_total = @order.payments.sum(:amount_cents).to_f/100.0 %>
-<% remaining = [0, (rounded_total - paid_total)].max %>
+<% payments_cents = @order.payments.sum(:amount_cents).to_i %>
+<% paid_total = payments_cents.to_f / 100.0 %>
+<% total_payable_cents = (total * 100.0).round %>
+<% remaining_cents = [total_payable_cents - payments_cents, 0].max %>
+<% remaining = remaining_cents.to_f / 100.0 %>
 
 <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-top:16px;font-size:12.5px">
 
   <!-- Left: show Paid / Remaining (left aligned) -->
   <div style="font-size:13px;line-height:1.4;margin-top:12px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div><strong>Total Paid</strong></div>
+      <div><strong>Total Paid (जमा राशि)</strong></div>
       <div style="font-weight:700;text-align:right">₹<%= '%.2f' % paid_total %></div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
-      <div><strong>Remaining Amount</strong></div>
+      <div><strong>Remaining Amount (बाकी)</strong></div>
       <div style="font-weight:700;text-align:right;color:#b91c1c">₹<%= '%.2f' % remaining %></div>
     </div>
   </div>
@@ -337,7 +359,7 @@
 
 
 <!-- FOOTER: signatures + governing law (anchored to bottom of invoice) -->
-    <div style="margin-top:auto;padding-top:18px;border-top:1px solid #e6edf5;font-size:12px;color:#111827">
+  <div style="margin-top:auto;padding-top:30px;padding-bottom:18px;border-top:1px solid #e6edf5;font-size:12px;color:#111827;line-height:1.6">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
           Customer Signature
@@ -350,8 +372,12 @@
         </div>
       </div>
 
-      <div style="font-size:11px;color:#4b5563;line-height:1.4;margin-top:6px">
-        <strong>Governing Law & Jurisdiction:</strong>
+      <div style="font-size:11px;color:#4b5563;line-height:1.6;margin-top:12px">
+        <!-- DISCLAIMER: brief note about breakage -->
+        <div style="margin-top:12px;font-size:12px;color:#6b7280;line-height:1.4">
+          <strong>Note:</strong> No guarantee is provided against breakage. Please handle items with care.
+        </div>
+        <strong style="display:block;margin-top:10px">Governing Law & Jurisdiction:</strong>
         This invoice shall be governed by and construed in accordance with the laws of India. Any dispute, claim or proceeding arising out of or in connection with this invoice shall be subject to the exclusive jurisdiction of the courts at Jagdishpur, Bihar, India.
       </div>
     </div>

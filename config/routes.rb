@@ -17,6 +17,9 @@ Rails.application.routes.draw do
     end
   end
 
+  # Public access to invoice PDF (signed token)
+  get 'public/invoice/:token', to: 'public_invoices#show', as: :public_invoice
+
   get 'pos', to: 'pos#index', as: :pos
   post 'pos/charge', to: 'pos#charge', as: :pos_charge
   post 'pos/create_order', to: 'pos#create_order', as: :pos_create_order

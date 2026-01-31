@@ -95,6 +95,11 @@
   font-weight: 600;
 }
 
+/* right-align numeric column headers to match data cells */
+.orders-table th.num {
+  text-align: right;
+}
+
 .num {
   text-align: right;
   white-space: nowrap;
@@ -185,22 +190,22 @@
   <table class="orders-table">
       <thead>
         <tr>
-          <th>SNo</th>
+          <th style="width:48px;text-align:center">SNo</th>
           <th>Invoice</th>
           <th>Order #</th>
           <th>Status</th>
-          <th>Date</th>
+          <th class="date">Date</th>
           <th>Items</th>
-          <th>Gross (g)</th>
-          <th>Net (g)</th>
-          <th>Total</th>
-          <th></th>
+          <th class="num">Gross (g)</th>
+          <th class="num">Net (g)</th>
+          <th class="num">Total</th>
+          <th style="width:80px"></th>
         </tr>
       </thead>
       <tbody>
         <% @orders.each_with_index do |o, idx| %>
           <tr>
-            <td><%= idx + 1 %></td>
+            <td style="text-align:center"><%= idx + 1 %></td>
             <td>
               <% if o.invoice_number.present? %>
                 <%= link_to o.invoice_number, invoice_order_path(o), class: 'btn btn-sm' %>
@@ -208,16 +213,16 @@
                 <%= link_to 'Generate', invoice_order_path(o), class: 'btn btn-sm' %>
               <% end %>
             </td>
-            <td><%= link_to "#\u0000#{o.id}", order_path(o) %></td>
-            <td><span class="badge"><%= o.status %></span></td>
-            <td class="small muted"><%= o.created_at.strftime('%b %d, %H:%M') %></td>
+            <td><%= link_to "##{o.id}", order_path(o) %></td>
+            <td><span class="status-badge"><%= o.status %></span></td>
+            <td class="small muted date"><%= o.created_at.strftime('%b %d, %H:%M') %></td>
             <td class="small muted item-list" title="<%= h(o.line_items.map{ |li| "#{li.jewelry_item.try(:name)} x#{li.quantity}" }.join(', ')) %>">
               <%= truncate(o.line_items.map{ |li| "#{li.jewelry_item.try(:name)} x#{li.quantity}" }.join(', '), length: 80) %>
             </td>
-            <td class="small muted"><%= (o.gross_weight.to_f.nonzero? ? o.gross_weight.to_f : o.line_items.sum(:gross_weight).to_f) %></td>
-            <td class="small muted"><%= (o.net_weight.to_f.nonzero? ? o.net_weight.to_f : o.line_items.sum(:net_weight).to_f) %></td>
-            <td><%= "\u20B9#{'%.2f' % o.total_with_taxes(cgst_rate: o.cgst_rate.to_f, igst_rate: o.igst_rate.to_f)}" %></td>
-            <td><%= link_to 'View', order_path(o), class: 'btn' %></td>
+            <td class="small muted num"><%= (o.gross_weight.to_f.nonzero? ? o.gross_weight.to_f : o.line_items.sum(:gross_weight).to_f) %></td>
+            <td class="small muted num"><%= (o.net_weight.to_f.nonzero? ? o.net_weight.to_f : o.line_items.sum(:net_weight).to_f) %></td>
+            <td class="num"><%= "\u20B9#{'%.2f' % o.total_with_taxes(cgst_rate: o.cgst_rate.to_f, igst_rate: o.igst_rate.to_f)}" %></td>
+            <td style="text-align:right"><%= link_to 'View', order_path(o), class: 'btn' %></td>
           </tr>
         <% end %>
       </tbody>

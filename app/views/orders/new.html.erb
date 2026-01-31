@@ -66,12 +66,8 @@
 
               <div class="form-row">
                 <div style="flex:1">
-                  <label>First Name</label>
-                  <%= c.text_field :first_name %>
-                </div>
-                <div style="flex:1">
-                  <label>Last Name</label>
-                  <%= c.text_field :last_name %>
+                  <label>Full Name</label>
+                  <%= c.text_field :full_name, placeholder: 'John Doe' %>
                 </div>
               </div>
 
@@ -157,7 +153,19 @@
   // items prepared server-side (controller provides @items = JewelryItem.available_for_sale)
   // include sku so we can show HUID in each row
   // include hsn so client can populate HSN input, plus weight_grams and effective per-gram price for totals
-  const items = <%= raw((@items || []).to_json(only: [:id, :name, :quantity, :sku, :hsn, :weight_grams], methods: [:price, :effective_price_per_gram])) %> || [];
+  const items = <%= raw((@items || []).map { |i|
+        {
+          id: i.id,
+          name: i.name,
+          quantity: i.quantity,
+          sku: i.sku,
+          hsn: (i.respond_to?(:hsn) ? i.hsn : nil),
+          weight_grams: i.weight_grams,
+          price: i.price,
+          effective_price_per_gram: i.effective_price_per_gram,
+          purity_total_weight: (i.purity ? i.purity.total_weight.to_f : nil)
+        }
+      }.to_json) %> || [];
   let tbody = null; // set after DOMContentLoaded to avoid early lookup
   // debug trace
   try{ console.log('orders/new script loaded, items count=', (items && items.length) || 0); }catch(e){}
@@ -235,12 +243,12 @@
       <td>
         <select name="line_items[][jewelry_item_id]" class="item-select">${optionsHtml}</select>
       </td>
-      <td><input type="text" name="line_items[][huid]" value="${itemObj.sku||''}" readonly class="huid-field"></td>
+      <td><input type="text" name="line_items[][huid]" value="${itemObj.sku||''}" class="huid-field"></td>
       <td><input type="text" name="line_items[][hsn]" value=""></td>
       <td><input type="number" name="line_items[][quantity]" value="1" min="1" class="qty"></td>
       <td><input type="number" name="line_items[][gross_weight]" value="" step="0.01"></td>
       <td><input type="number" name="line_items[][net_weight]" value="${itemObj.weight_grams || ''}" step="0.01" class="net-weight"></td>
-      <td><input type="number" name="line_items[][rate]" value="${((itemObj.effective_price_per_gram || itemObj.price || 0) * (itemObj.weight_grams || 0) * 1).toFixed(2)}" readonly class="rate-field"><span class="price-cell" style="display:none"></span></td>
+      <td><input type="number" name="line_items[][rate]" value="${(0).toFixed(2)}" class="rate-field"><span class="price-cell" style="display:none"></span></td>
       <td>
         <input type="number" name="line_items[][making_charge_percent]" value="0" step="0.01" class="making-percent">
         <input type="hidden" name="line_items[][making_charge]" value="0" class="making-rupee">
@@ -254,6 +262,7 @@
   refreshAllItemSelects();
   updateRemoveButtons();
   recalc();
+  try{ if(typeof updateAddButtonState === 'function') updateAddButtonState(); }catch(e){}
   }
 
   function attachRowListeners(row){
@@ -278,7 +287,15 @@
           if(huidInput) huidInput.value = it.sku || '';
           if(hsnInput) hsnInput.value = it.hsn || '';
           if(netInput) netInput.value = netVal;
-          if(rateInput) rateInput.value = (perGram * netVal * q).toFixed(2);
+          // set max on net input according to purity availability when known
+          if(netInput){
+            if(it.purity_total_weight != null){
+              netInput.setAttribute('max', String(it.purity_total_weight));
+            } else {
+              netInput.removeAttribute('max');
+            }
+          }
+            if(rateInput && !rateInput.dataset.manual){ const cur = parseFloat(rateInput.value) || 0; if(cur === 0) rateInput.value = perGram.toFixed(2); }
           if(priceCell) priceCell.textContent = money(perGram) + ' /g';
           if(lineTotal) lineTotal.textContent = money(perGram * netVal * q);
         }
@@ -295,6 +312,15 @@
       });
     }
 
+    // wire rate input to mark manual edits so auto-fill won't override them
+    const rateInputRow = row.querySelector('input[name="line_items[][rate]"]') || row.querySelector('.rate-field') || row.querySelector('.rate');
+    if(rateInputRow){
+      rateInputRow.addEventListener('input', function(){
+        try{ this.dataset.manual = '1'; }catch(e){}
+        try{ recalc(); updateSubmitButtons(); }catch(e){}
+      });
+    }
+
     qty && qty.addEventListener('input', function(){
       const idVal = hiddenId ? hiddenId.value : (select ? select.value : null);
       const it = items.find(x => String(x.id) == String(idVal));
@@ -303,8 +329,26 @@
       const q = parseInt(qty.value || 0) || 0;
       const perGram = it ? parseFloat(it.effective_price_per_gram || it.price || 0) : 0;
       if(lineTotal && (perGram || q || net)) lineTotal.textContent = money(perGram * net * q);
-      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
+      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput && !rateInput.dataset.manual){ const cur = parseFloat(rateInput.value) || 0; if(cur === 0) rateInput.value = perGram.toFixed(2); }
       recalc();
+      // validate quantity against available catalog quantity
+      try{
+        if(it && typeof it.quantity !== 'undefined'){
+          const avail = parseInt(it.quantity || 0);
+          if(q > avail){
+            qty.classList.add('field-error');
+            qty.title = `Max available: ${avail}`;
+          } else {
+            qty.classList.remove('field-error');
+            qty.removeAttribute('title');
+          }
+        } else {
+          qty.classList.remove('field-error');
+          qty.removeAttribute('title');
+        }
+      }catch(e){}
+      try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){}
+      try{ if(typeof updateAddButtonState === 'function') updateAddButtonState(); }catch(e){}
     });
     const netEl = row.querySelector('input[name="line_items[][net_weight]"]');
     netEl && netEl.addEventListener('input', function(){
@@ -314,9 +358,32 @@
       const q = parseInt((row.querySelector('.qty')||{value:1}).value || 1) || 0;
       const perGram = it ? parseFloat(it.effective_price_per_gram || it.price || 0) : 0;
       if(lineTotal) lineTotal.textContent = money(perGram * net * q);
-      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput) rateInput.value = (perGram * net * q).toFixed(2);
+      const rateInput = row.querySelector('input[name="line_items[][rate]"]'); if(rateInput && !rateInput.dataset.manual){ const cur = parseFloat(rateInput.value) || 0; if(cur === 0) rateInput.value = perGram.toFixed(2); }
       recalc();
+      // validate against purity availability (if provided)
+      try{
+        const mx = netEl.max ? parseFloat(netEl.max) : null;
+        const selId = select ? String(select.value) : null;
+        const cum = selId ? getCumulativeNetForItem(selId) : 0;
+        const avail = (it && it.purity_total_weight != null) ? parseFloat(it.purity_total_weight) : null;
+        if(avail != null){
+          if(cum > avail){ netEl.classList.add('field-error'); }
+          else { netEl.classList.remove('field-error'); }
+          // update shared tooltip if visible
+          updateNetTooltip(netEl);
+        } else {
+          if(mx && net > mx){ netEl.classList.add('field-error'); } else { netEl.classList.remove('field-error'); }
+        }
+      }catch(e){}
+      try{ if(typeof updateAddButtonState === 'function') updateAddButtonState(); }catch(e){}
     });
+
+    // tooltip handlers for NET input
+    if(netEl){
+      netEl.addEventListener('focus', function(){ showNetTooltip(netEl); updateNetTooltip(netEl); });
+      netEl.addEventListener('blur', function(){ hideNetTooltip(); });
+      netEl.addEventListener('input', function(){ updateNetTooltip(netEl); });
+    }
     const rem = row.querySelector('.remove'); if(rem) rem.addEventListener('click', function(){
       // prevent deleting the only remaining row
       const rows = tbody ? tbody.querySelectorAll('tr') : [];
@@ -348,7 +415,7 @@
         const addBtnEl = document.getElementById('add-order-row');
         if(addBtnEl && !addBtnEl.dataset._orders_bound){ addBtnEl.addEventListener('click', addRow); addBtnEl.dataset._orders_bound = '1'; }
         if(tbody && !tbody.dataset._orders_input_bound){
-          tbody.addEventListener('input', function(e){ recalc(); try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){} if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge|making_charge_percent|additional_charge/)) e.target.classList.remove('field-error'); } });
+          tbody.addEventListener('input', function(e){ recalc(); try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){} try{ if(typeof updateAddButtonState === 'function') updateAddButtonState(); }catch(e){} if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge|making_charge_percent|additional_charge/)) e.target.classList.remove('field-error'); } });
           tbody.dataset._orders_input_bound = '1';
         }
         // ensure at least one row exists so first item appears
@@ -356,6 +423,7 @@
         refreshAllItemSelects();
         updateRemoveButtons();
         try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){}
+        try{ if(typeof updateAddButtonState === 'function') updateAddButtonState(); }catch(e){}
         return;
       }
     }catch(e){}
@@ -366,13 +434,14 @@
     updateRemoveButtons();
     // some apps may not define updateSubmitButtons; guard it
     try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){}
+    try{ if(typeof updateAddButtonState === 'function') updateAddButtonState(); }catch(e){}
     const addBtnEl = document.getElementById('add-order-row');
     if(addBtnEl && !addBtnEl.dataset._orders_bound){ addBtnEl.addEventListener('click', addRow); addBtnEl.dataset._orders_bound = '1'; }
     // start with one row if none
     if(tbody && !tbody.querySelectorAll('tr').length) addRow();
     // wire tbody input listener (only after tbody exists)
     if(tbody && !tbody.dataset._orders_input_bound){
-      tbody.addEventListener('input', function(e){ recalc(); try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){} if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge|making_charge_percent|additional_charge/)) e.target.classList.remove('field-error'); } });
+      tbody.addEventListener('input', function(e){ recalc(); try{ if(typeof updateSubmitButtons === 'function') updateSubmitButtons(); }catch(e){} try{ if(typeof updateAddButtonState === 'function') updateAddButtonState(); }catch(e){} if(e && e.target){ if(e.target.name && e.target.name.match(/net_weight|quantity|making_charge|making_charge_percent|additional_charge/)) e.target.classList.remove('field-error'); } });
       tbody.dataset._orders_input_bound = '1';
     }
     window._orders_init_done = true;
@@ -390,7 +459,10 @@
       const idVal = idInput ? idInput.value : (select ? select.value : null);
       const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0) || 0;
       const netInput = r.querySelector('input[name^="line_items"][name$="[net_weight]"]') || r.querySelector('.net-weight');
+      const rateInput = r.querySelector('input[name="line_items[][rate]"]') || r.querySelector('.rate-field') || r.querySelector('.rate');
       const net = parseFloat((netInput && netInput.value) || 0) || 0;
+      const explicitRate = rateInput ? (parseFloat(rateInput.value) || 0) : 0;
+      const isManualRate = rateInput ? String(rateInput.dataset.manual) === '1' : false;
       // read making as percent and compute rupee amount for submission
       const makingPercentEl = r.querySelector('input[name^="line_items"][name$="[making_charge_percent]"]');
       const makingPercent = parseFloat((makingPercentEl||{value:0}).value || 0) || 0;
@@ -401,14 +473,14 @@
       const addPerItem = parseFloat((addEl||{value:0}).value || 0) || 0;
       if(it){
         const perGram = parseFloat(it.effective_price_per_gram || it.price || 0) || 0;
-        const baseAmount = perGram * net * qty;
+        const effectiveRate = (isManualRate || explicitRate > 0) ? explicitRate : perGram;
+        const baseAmount = effectiveRate * net * qty;
         const making = baseAmount * (makingPercent/100.0);
         const makingHidden = r.querySelector('input[name^="line_items"][name$="[making_charge]"]');
         if(makingHidden) makingHidden.value = making.toFixed(2);
         const addTotal = addPerItem * qty;
         lineAmount = baseAmount + (isNaN(making) ? 0 : making) + addTotal;
-        const rateInput = r.querySelector('input[name="line_items[][rate]"]');
-        if(rateInput) rateInput.value = (perGram * net * qty).toFixed(2);
+        if(rateInput && !rateInput.dataset.manual){ const cur = parseFloat(rateInput.value) || 0; if(cur === 0) rateInput.value = perGram.toFixed(2); }
       } else {
         const making = 0;
         const makingHidden = r.querySelector('input[name^="line_items"][name$="[making_charge]"]');
@@ -441,59 +513,14 @@
 
   // client-side validation: require customer (existing or new) and at least one item
   function showFormError(msg){
-    let err = document.getElementById('form-error');
-    if(!err){
-      err = document.createElement('div'); err.id = 'form-error';
-      err.style = 'background:#fff8e6;border:1px solid #f5e0b7;padding:10px;margin-bottom:12px;color:#7a5a00';
-      const form = document.getElementById('order-form');
-      form && form.parentNode.insertBefore(err, form);
-    }
-    err.textContent = msg;
-    window.scrollTo({top:0,behavior:'smooth'});
-  }
-
-  function clearFormError(){
-    const err = document.getElementById('form-error'); if(err) err.remove();
-  }
-
-  function validateForm(){
     clearFormError();
-    const existingEl = document.getElementById('existing_customer_id');
-    const existing = existingEl ? existingEl.value : '';
-    const toggle = document.getElementById('toggle-new-customer');
-    if(!existing && (!toggle || !toggle.checked)){
-      showFormError('Please select an existing customer or add a new customer.');
-      return false;
-    }
-      if(toggle && toggle.checked){
-      const fnameEl = document.querySelector('input[name="customer[first_name]"]');
-      const phoneEl = document.querySelector('input[name="customer[phone]"]');
-      const fname = fnameEl ? fnameEl.value.trim() : '';
-      const phone = phoneEl ? phoneEl.value.trim() : '';
-      const phoneDigits = phone.replace(/\D/g,'');
-      if(!fname || !phone){
-        showFormError('Please fill first name and phone for the new customer.');
-        return false;
-      }
-      if(phoneDigits.length !== 10){
-        showFormError('Phone must be exactly 10 digits.');
-        return false;
-      }
-    }
-    // ensure at least one item and qty > 0
-    const rows = tbody ? tbody.querySelectorAll('tr') : [];
-    if(rows.length === 0){ showFormError('Please add at least one item to the order.'); return false; }
-    for(const r of rows){
-      const qty = parseInt((r.querySelector('.qty')||{value:0}).value || 0);
-  const idInput = r.querySelector('input.item-id-hidden');
-  const sel = idInput ? idInput : r.querySelector('.item-select');
-      const nweightEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
-      const weight = nweightEl ? parseFloat(nweightEl.value || 0) : 0;
-      if(!sel || !sel.value){ showFormError('Please choose an item for each row.'); return false; }
-      if(qty <= 0){ showFormError('Quantity must be at least 1 for each item.'); return false; }
-      if(!weight || weight <= 0 || isNaN(weight)){ showFormError('Net weight must be provided and greater than 0 for each item.'); return false; }
-    }
-    return true;
+    const err = document.createElement('div');
+    err.id = 'form-error';
+    err.style.color = 'red';
+    err.style.margin = '8px 0';
+    err.textContent = msg || 'Please correct the form errors.';
+    const form = document.getElementById('order-form');
+    if(form && form.parentNode) form.parentNode.insertBefore(err, form);
   }
 
   // quick, non-UI validation used to toggle the disabled state of Create buttons
@@ -504,11 +531,13 @@
     const toggle = document.getElementById('toggle-new-customer');
     if(!existing && (!toggle || !toggle.checked)) return false;
     if(toggle && toggle.checked){
-      const fnameEl = document.querySelector('input[name="customer[first_name]"]');
+      const fullEl = document.querySelector('input[name="customer[full_name]"]');
+      const addrEl = document.querySelector('textarea[name="customer[address]"]');
       const phoneEl = document.querySelector('input[name="customer[phone]"]');
-      const fname = fnameEl ? fnameEl.value.trim() : '';
+      const full = fullEl ? fullEl.value.trim() : '';
+      const addr = addrEl ? addrEl.value.trim() : '';
       const phone = phoneEl ? (phoneEl.value || '').replace(/\D/g,'') : '';
-      if(!fname || !phone) return false;
+      if(!full || !addr || !phone) return false;
       if(phone.length !== 10) return false;
     }
     // items validity: at least one row with selected item, qty>0, net_weight>0
@@ -522,6 +551,14 @@
       const weight = nweightEl ? parseFloat(nweightEl.value || 0) : 0;
       if(!sel || !sel.value) return false;
       if(qty <= 0) return false;
+      // ensure qty does not exceed available stock
+      try{
+        const idVal = sel.value;
+        const it = items.find(x => String(x.id) == String(idVal));
+        if(it && typeof it.quantity !== 'undefined'){
+          if(qty > parseInt(it.quantity || 0)) return false;
+        }
+      }catch(e){}
       if(!weight || weight <= 0 || isNaN(weight)) return false;
     }
     return true;
@@ -541,12 +578,18 @@
       return false;
     }
     if(toggle && toggle.checked){
-      const fnameEl = document.querySelector('input[name="customer[first_name]"]');
+      const fullEl = document.querySelector('input[name="customer[full_name]"]');
+      const addrEl = document.querySelector('textarea[name="customer[address]"]');
       const phoneEl = document.querySelector('input[name="customer[phone]"]');
-      const fname = fnameEl ? fnameEl.value.trim() : '';
+      const full = fullEl ? fullEl.value.trim() : '';
+      const addr = addrEl ? addrEl.value.trim() : '';
       const phone = phoneEl ? phoneEl.value.trim() : '';
-      if(!fname || !phone){
-        showFormError('Please fill first name and phone for the new customer.');
+      if(!full || !addr || !phone){
+        showFormError('Please fill Full Name, Address and Phone for the new customer.');
+        return false;
+      }
+      if((phone || '').replace(/\D/g,'').length !== 10){
+        showFormError('Phone must be 10 digits.');
         return false;
       }
     }
@@ -667,7 +710,7 @@
     const toggleEl2 = document.getElementById('toggle-new-customer');
     if(existingEl && existingEl.value) return true;
     if(toggleEl2 && toggleEl2.checked){
-      const f = document.querySelector('input[name="customer[first_name]"]');
+      const f = document.querySelector('input[name="customer[full_name]"]');
       const p = document.querySelector('input[name="customer[phone]"]');
       const pv = p ? (p.value || '').replace(/\D/g,'') : '';
       return f && p && f.value.trim() !== '' && pv.length === 10;
@@ -683,6 +726,103 @@
     // also include any default submit inputs
     document.querySelectorAll('input[type="submit"].btn.btn-primary').forEach(b => { if(!btns.includes(b)) btns.push(b); });
     btns.forEach(b => b.disabled = !ok);
+  }
+
+  // --- Add-item / NET(g) helpers ---
+  function rowNetValid(r){
+    const netEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
+    const qtyEl = r.querySelector('.qty');
+    const net = netEl ? parseFloat(netEl.value || 0) : 0;
+    const qty = qtyEl ? parseInt(qtyEl.value || 1) : 1;
+    if(!net || net <= 0 || isNaN(net)) return false;
+    const sel = r.querySelector('.item-select');
+    const idVal = sel ? sel.value : (r.querySelector('input.item-id-hidden') ? r.querySelector('input.item-id-hidden').value : null);
+    if(!idVal) return false;
+    const it = items.find(x => String(x.id) == String(idVal));
+    if(it && it.purity_total_weight != null){
+      // cumulative across rows for this item must not exceed purity total
+      const cum = getCumulativeNetForItem(String(idVal));
+      if((cum) > parseFloat(it.purity_total_weight)) return false;
+      // also ensure this row's contribution is positive
+      if((net * qty) > parseFloat(it.purity_total_weight)) return false;
+    }
+    return true;
+  }
+
+  function anyRowNetTooLarge(){
+    const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+    for(const r of rows){
+      const netEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
+      const qtyEl = r.querySelector('.qty');
+      const net = netEl ? parseFloat(netEl.value || 0) : 0;
+      const qty = qtyEl ? parseInt(qtyEl.value || 1) : 1;
+      if(!net || net <= 0 || isNaN(net)) continue; // empty rows ignored for this check
+      const sel = r.querySelector('.item-select');
+      const idVal = sel ? sel.value : (r.querySelector('input.item-id-hidden') ? r.querySelector('input.item-id-hidden').value : null);
+      if(!idVal) continue;
+      const it = items.find(x => String(x.id) == String(idVal));
+      if(it && it.purity_total_weight != null){
+        const cum = getCumulativeNetForItem(String(idVal));
+        if(cum > parseFloat(it.purity_total_weight)) return true;
+      }
+    }
+    return false;
+  }
+
+  // sum net * qty across all rows for a given item id
+  function getCumulativeNetForItem(itemId){
+    let sum = 0;
+    const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+    for(const r of rows){
+      // determine the item id for this row (select or hidden id)
+      let idVal = null;
+      const sel = r.querySelector('.item-select');
+      if(sel && sel.value) idVal = String(sel.value);
+      const hid = r.querySelector('input.item-id-hidden');
+      if(!idVal && hid && hid.value) idVal = String(hid.value);
+      if(!idVal) continue;
+      if(String(idVal) !== String(itemId)) continue;
+      // robustly find net and qty inputs
+      let netEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
+      if(!netEl) netEl = r.querySelector('.net-weight');
+      let qtyEl = r.querySelector('.qty');
+      if(!qtyEl) qtyEl = r.querySelector('input[name^="line_items"][name$="[quantity]"]');
+      const net = netEl ? parseFloat((netEl.value || '').toString().replace(/,/g,'')) : 0;
+      const qty = qtyEl ? parseInt((qtyEl.value || '1').toString().replace(/,/g,'')) : 1;
+      if(net && !isNaN(net) && qty && !isNaN(qty)) sum += (net * qty);
+      try{ console.debug('cumRow', {rowIndex: rows.indexOf(r), idVal: idVal, net: net, qty: qty, partial: (net*qty)}); }catch(e){}
+    }
+    try{ console.debug('cumSum', {itemId: itemId, sum: sum}); }catch(e){}
+    return sum;
+  }
+
+  function updateAddButtonState(){
+    const addBtn = document.getElementById('add-order-row');
+    if(!addBtn) return;
+    // if any row exceeds available weight, disable Add
+    if(anyRowNetTooLarge()){ addBtn.disabled = true; return; }
+    // determine if there exists any unselected item with remaining purity weight > 0
+    const selectedIds = getSelectedIds();
+    let anyRemaining = false;
+    items.forEach(it => {
+      const id = String(it.id);
+      const total = (it.purity_total_weight != null) ? parseFloat(it.purity_total_weight) : null;
+      const cum = getCumulativeNetForItem(id);
+      const remaining = (total != null) ? (total - cum) : null;
+      if(remaining != null && remaining > 0){
+        // if item not already selected, it's available to add
+        if(!selectedIds.has(id)) anyRemaining = true;
+      }
+    });
+    // require that all existing rows have NET > 0 before allowing Add
+    const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+    // if there are no rows yet, allow adding a row
+    if(rows.length === 0){ addBtn.disabled = false; return; }
+    const allNetPositive = rows.every(r => {
+      const netEl = r.querySelector('input[name^="line_items"][name$="[net_weight]"]');
+      return !!netEl && !!netEl.value && parseFloat(netEl.value || 0) > 0;
+    });
+    addBtn.disabled = !(anyRemaining && allNetPositive);
   }
 
   // wire customer-related events to keep submit state in sync
@@ -701,7 +841,7 @@
       updateSubmitButtons();
     });
     // watch new-customer inputs
-    ['customer[first_name]','customer[phone]'].forEach(name => {
+    ['customer[full_name]','customer[phone]'].forEach(name => {
       const el = document.querySelector(`[name="${name}"]`);
       if(el) el.addEventListener('input', updateSubmitButtons);
     });
@@ -724,5 +864,48 @@
   window._orders_helpers.updateSubmitButtons = updateSubmitButtons;
   window._orders_helpers.validateForm = validateForm;
   window._orders_helpers.isFormValidQuiet = isFormValidQuiet;
+
+  // shared NET tooltip element
+  const netTooltip = (function(){
+    const el = document.createElement('div');
+    el.id = 'net-tooltip';
+    el.style.position = 'absolute';
+    el.style.background = '#111';
+    el.style.color = '#fff';
+    el.style.padding = '6px 8px';
+    el.style.borderRadius = '6px';
+    el.style.fontSize = '12px';
+    el.style.pointerEvents = 'none';
+    el.style.display = 'none';
+    el.style.zIndex = 2000;
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  function showNetTooltip(target){ if(!netTooltip) return; netTooltip.style.display = 'block'; positionNetTooltip(target); }
+  function hideNetTooltip(){ if(!netTooltip) return; netTooltip.style.display = 'none'; }
+  function positionNetTooltip(target){
+    try{
+      const r = target.getBoundingClientRect();
+      netTooltip.style.top = (window.scrollY + r.top - 36) + 'px';
+      netTooltip.style.left = (window.scrollX + r.left) + 'px';
+    }catch(e){}
+  }
+  function updateNetTooltip(target){
+    try{
+      // ensure totals are up to date
+      try{ recalc(); }catch(e){}
+      const sel = target.closest('tr').querySelector('.item-select');
+      const idVal = sel ? String(sel.value) : null;
+      if(!idVal){ netTooltip.textContent = 'Select an item to see purity availability.'; positionNetTooltip(target); return; }
+      const it = items.find(x => String(x.id) == String(idVal));
+      if(!it || it.purity_total_weight == null){ netTooltip.textContent = 'No purity info available.'; positionNetTooltip(target); return; }
+      const cum = getCumulativeNetForItem(idVal);
+      const total = parseFloat(it.purity_total_weight);
+      const remaining = Math.max(0, (total - cum)).toFixed(3);
+      netTooltip.textContent = `Purity available: ${total}g — Selected: ${cum.toFixed(3)}g — Remaining: ${remaining}g`;
+      positionNetTooltip(target);
+    }catch(e){}
+  }
 
 })();</script>

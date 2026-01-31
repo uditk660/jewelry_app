@@ -137,7 +137,15 @@ class OrdersController < ApplicationController
 
   def invoice
     @order = Order.find(params[:id])
-  render template: 'orders/invoice', layout: 'application'
+    respond_to do |format|
+      format.html { render template: 'orders/invoice', layout: 'application' }
+      format.pdf do
+        render pdf: "invoice_#{@order.id}",
+               template: 'orders/invoice',
+               layout: 'pdf',
+               disposition: 'inline'
+      end
+    end
   end
 
   def new
@@ -153,7 +161,14 @@ class OrdersController < ApplicationController
     if params[:existing_customer_id].present?
       @order.customer_id = params[:existing_customer_id]
     elsif params[:customer].present?
-      cust_attrs = params.require(:customer).permit(:first_name, :last_name, :address, :aadhaar_or_pan, :gst_number, :email, :phone)
+      cust_attrs = params.require(:customer).permit(:full_name, :first_name, :last_name, :address, :aadhaar_or_pan, :gst_number, :email, :phone)
+      # If the form sent a combined full_name, split it into first/last pieces
+      if cust_attrs[:full_name].present?
+        parts = cust_attrs[:full_name].to_s.strip.split
+        cust_attrs[:first_name] = parts.shift || ''
+        cust_attrs[:last_name] = parts.join(' ')
+        cust_attrs.delete(:full_name)
+      end
       # Convert blank email to nil so DB unique index on email allows multiple nulls
       cust_attrs[:email] = nil if cust_attrs[:email].blank?
       # Prefer matching existing customer by phone, then email
@@ -211,8 +226,20 @@ class OrdersController < ApplicationController
   rate = li[:rate].to_s
     # fallback to catalog item's HSN when incoming param is blank
     hsn = ji.try(:hsn).to_s if hsn.blank? && ji.respond_to?(:hsn)
+        # server-side validation: ensure purity has enough total weight remaining
+        if ji.purity_id.present?
+          purity = Purity.find_by(id: ji.purity_id)
+          if purity && (purity.total_weight.to_f < (nwt * qty))
+            @order.destroy
+            @order = Order.new(status: 'pending')
+            @order.errors.add(:base, "Not enough purity weight available for item #{ji.name} (requested #{(nwt * qty).round(3)}g)")
+            @items = JewelryItem.available_for_sale.order(:name)
+            @customers = Customer.order(:first_name, :last_name).limit(200)
+            render template: 'orders/new' and return
+          end
+        end
         # only add if enough per-piece quantity is available
-          if ji.quantity.to_i >= qty && qty > 0
+        if ji.quantity.to_i >= qty && qty > 0
           @order.line_items.create!(jewelry_item: ji, price_cents: ji.price_cents, quantity: qty, weight: nwt, gross_weight: gwt, net_weight: nwt, making_charge: making, additional_charge: additional, hsn: hsn, huid: huid, rate: rate)
           created += 1
         end
@@ -229,6 +256,32 @@ class OrdersController < ApplicationController
       cgst_c = @order.cgst_amount_cents(@order.cgst_rate)
       igst_c = @order.igst_amount_cents(@order.igst_rate)
       @order.update_columns(cgst_cents: cgst_c, igst_cents: igst_c)
+      # decrement stock and purity weights (only once)
+      if @order.stock_decremented_at.nil?
+        Order.transaction do
+          @order.line_items.includes(:jewelry_item).each do |li|
+            begin
+              ji = JewelryItem.lock.find(li.jewelry_item_id)
+            rescue ActiveRecord::RecordNotFound
+              next
+            end
+            # decrease item quantity (clamp at zero)
+            new_qty = ji.quantity.to_i - li.quantity.to_i
+            ji.update_columns(quantity: (new_qty < 0 ? 0 : new_qty))
+
+            # decrease purity total_weight if applicable
+            if ji.purity_id.present?
+              purity = Purity.lock.find_by(id: ji.purity_id)
+              if purity
+                dec_grams = (li.net_weight.to_f * li.quantity.to_i)
+                new_tw = purity.total_weight.to_f - dec_grams
+                purity.update_columns(total_weight: (new_tw < 0 ? 0.0 : new_tw))
+              end
+            end
+          end
+          @order.update_columns(stock_decremented_at: Time.current)
+        end
+      end
       redirect_to @order
     else
   @items = JewelryItem.order(:name)

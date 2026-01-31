@@ -15,7 +15,8 @@ class Order < ActiveRecord::Base
   DEFAULT_IGST_RATE = 1.5
 
   def total_cents
-    line_items.sum('price_cents * quantity')
+    # Use computed per-line amounts (which include per-gram * net_weight * qty, making, and additional charges)
+    computed_total_cents
   end
 
   # Return the CGST rate for this order, falling back to the default if not set
@@ -33,13 +34,11 @@ class Order < ActiveRecord::Base
   end
 
   def total_cents_with_taxes_cached
-    # prefer stored tax cents if present, else compute using rates
-    if (self.cgst_cents && self.cgst_cents.to_i > 0) || (self.igst_cents && self.igst_cents.to_i > 0)
-      taxable = taxable_amount_cents
-      taxable + (cgst_cents.to_i) + (igst_cents.to_i)
-    else
-      total_cents_with_taxes(cgst_rate: cgst_rate_or_default, igst_rate: igst_rate_or_default)
-    end
+    # Compute taxes using the order's configured rates (prefer explicit rates, else fall back to defaults)
+    taxable = taxable_amount_cents
+    cgst_c = cgst_amount_cents(cgst_rate_or_default)
+    igst_c = igst_amount_cents(igst_rate_or_default)
+    taxable + cgst_c + igst_c
   end
 
   def paid_cents
