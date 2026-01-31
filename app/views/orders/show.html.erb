@@ -23,9 +23,6 @@
 
     <div class="header-actions">
       <%= link_to 'Back to Orders', orders_path, class: 'btn btn-secondary' %>
-      <% if @order.status == 'pending' %>
-        <%= link_to 'Record Payment', '#charge-form', class: 'btn btn-primary' %>
-      <% end %>
     </div>
   </header>
 

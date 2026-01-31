@@ -298,10 +298,8 @@
                 <td class="date muted"><%= o.sale_date || o.created_at.to_date %></td>
                 <td class="status muted"><%= o.status.to_s.titleize %></td>
                 <td class="num">
-                  ₹<%= '%.2f' % o.total_with_taxes(
-                        cgst_rate: o.cgst_rate.to_f,
-                        igst_rate: o.igst_rate.to_f
-                      ) %>
+                  <% amt = (o.respond_to?(:total_cents_with_taxes_cached) ? (o.total_cents_with_taxes_cached.to_f/100.0) : 0) %>
+                  ₹<%= '%.2f' % amt %>
                 </td>
               </tr>
             <% end %>
