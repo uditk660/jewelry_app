@@ -56,6 +56,15 @@
 
             <dt>Amount</dt>
             <dd><%= @record['amount'].presence || '—' %></dd>
+
+            <dt>Weight (g)</dt>
+            <dd><%= @record['weight'].present? ? ('%.3f' % @record['weight'].to_f) : '—' %></dd>
+
+            <dt>Returning Rate (₹ / g)</dt>
+            <dd><%= @record['returning_rate'].present? ? ('₹' + ('%.2f' % @record['returning_rate'].to_f)) : '—' %></dd>
+
+            <dt>Additional Costs (₹)</dt>
+            <dd><%= @record['additional_costs'].present? ? ('₹' + ('%.2f' % @record['additional_costs'].to_f)) : '—' %></dd>
           </div>
 
           <div style="margin-top:14px">
@@ -85,6 +94,15 @@
                     <div style="font-weight:700"><%= ji.name %></div>
                     <div class="muted">SKU: <%= ji.sku %></div>
                     <div style="margin-top:8px">Returned qty: <strong><%= @record['quantity'] %></strong></div>
+                    <% if @record['weight'].present? %>
+                      <div class="muted" style="margin-top:6px">Weight (per item): <strong><%= '%.3f' % @record['weight'].to_f %> g</strong></div>
+                    <% end %>
+                    <% if @record['returning_rate'].present? %>
+                      <div class="muted" style="margin-top:4px">Returning Rate: <strong>₹<%= '%.2f' % @record['returning_rate'].to_f %></strong> /g</div>
+                    <% end %>
+                    <% if @record['additional_costs'].present? %>
+                      <div class="muted" style="margin-top:4px">Additional Costs: <strong>₹<%= '%.2f' % @record['additional_costs'].to_f %></strong></div>
+                    <% end %>
                   </div>
                 </div>
                 <div style="margin-top:12px" class="muted">Current stock: <strong><%= ji.quantity %></strong></div>
