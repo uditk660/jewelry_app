@@ -37,9 +37,14 @@
         </div>
       </div>
 
-      <div class="purities-actions">
-        <%= link_to 'New Purity', new_purity_path, class: 'btn-primary' %>
-        <%= link_to 'Refresh', purities_path, class: 'btn-ghost' %>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="purities-actions">
+          <%= link_to 'New Purity', new_purity_path, class: 'btn-primary' %>
+          <%= link_to 'Refresh', purities_path, class: 'btn-ghost' %>
+        </div>
+        <div class="pagination-controls muted">
+          <span>Total: <%= @total_count || @purities.count %></span>
+        </div>
       </div>
     </div>
 
@@ -51,6 +56,7 @@
             <th>Name</th>
             <th>Purity (%)</th>
             <th>Price / g</th>
+            <th>Total Weight (g)</th>
             <th>Remarks</th>
             <th></th>
           </tr>
@@ -62,12 +68,28 @@
               <td><%= p.name %></td>
               <td><span class="badge"><%= number_with_precision(p.purity_percent || 0, precision: 2) %></span></td>
               <td><%= number_to_currency(p.updated_price || 0, unit: '₹', precision: 2, delimiter: ',') %></td>
+              <td><%= number_with_precision((p.total_weight || 0), precision: 3, delimiter: ',') %></td>
               <td><%= truncate(p.remarks.to_s, length: 60) %></td>
               <td><%= link_to 'View', purity_path(p), class: 'btn-ghost' %></td>
             </tr>
           <% end %>
         </tbody>
       </table>
+      <div class="card-footer pagination" style="margin-top:12px">
+        <% if @page && @per_page %>
+          <% prev_page = @page - 1 %>
+          <% next_page = @page + 1 %>
+          <div class="pager" style="display:flex;gap:8px;align-items:center">
+            <% if prev_page >= 1 %>
+              <%= link_to '← Prev', purities_path(request.query_parameters.merge(page: prev_page)), class: 'btn-ghost' %>
+            <% end %>
+            <span class="muted">Page <%= @page %></span>
+            <% if (@page * @per_page) < (@total_count || 0) %>
+              <%= link_to 'Next →', purities_path(request.query_parameters.merge(page: next_page)), class: 'btn-ghost' %>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
     <% else %>
       <div class="empty-state">
         No purities found. <%= link_to 'Create the first purity', new_purity_path, class: 'btn-primary' %>

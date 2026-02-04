@@ -1,7 +1,11 @@
 class PuritiesController < ApplicationController
   before_action :set_purity, only: [:show, :edit, :update]
   def index
-    @purities = Purity.order(:name)
+    @page = params[:page].to_i > 0 ? params[:page].to_i : 1
+    @per_page = 25
+    @total_count = Purity.count
+    @purities = Purity.order(:name).limit(@per_page).offset((@page - 1) * @per_page)
+    @start_index = (@page - 1) * @per_page
     render template: 'purities/index'
   end
 

@@ -22,97 +22,42 @@
       flex: 1;
     }
 
-    @media print {
-      @page {
-        size: A4;
-        margin: 0;
-      }
-
-      .invoice-box {
-        border: none !important;
-      }
-
-      body {
-        background: #fff !important;
-      }
-
-      body * {
-        visibility: hidden;
-      }
-
-      #print-area,
-      #print-area * {
-        visibility: visible;
-      }
-
-      #print-area {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-      }
-
-      .no-print {
-        display: none !important;
-      }
-
-      table, tr, td, th {
-        page-break-inside: avoid !important;
-      }
-      /* make table headers use sensible defaults; per-column inline styles will override */
-      th { text-align: left; }
+    table, tr, td, th {
+      page-break-inside: avoid !important;
     }
   </style>
 </head>
 
 <body>
 
-<!-- PRINT BUTTON -->
-<div class="no-print" style="width:1100px;margin:12px auto 0;text-align:right">
-  <button onclick="window.print()"
-    style="padding:8px 20px;border:1px solid #000;background:#fff;cursor:pointer;font-size:13px">
-    Print Invoice
-  </button>
-</div>
-
 <div id="print-area">
 
-<div class="invoice-box"
-  style="width:960px;margin:12px auto;background:#fff;border:1.5px solid #000;padding:20px 14px;font-size:13px;color:#000;display:flex;flex-direction:column;min-height:calc(297mm - 40mm)">
+<div class="invoice-box" style="width:960px;margin:12px auto;background:#fff;border:1.5px solid #000;padding:20px 14px;font-size:13px;color:#000;display:flex;flex-direction:column;min-height:calc(297mm - 40mm)">
 
 <div class="invoice-body">
 
 <!-- ================= HEADER ================= -->
-<div style="display:grid;
-            grid-template-columns:220px 1fr 160px;
-            align-items:center;
-            border-bottom:1.8px solid #000;
-            padding-bottom:12px">
-  <!-- GST -->
-  <div style="font-size:12px;line-height:1.7">
-    <strong>GSTIN:</strong><br>
-    10CMOPK8720K1ZV<br>
-   <strong>A/C:</strong> 32606206871<br>
-   <strong>IFSC:</strong> SBIN0010769<br>
-   <strong>B Name:</strong> SUDHIR KUMAR
+<div style="display:table;width:100%;table-layout:fixed;border-bottom:1.8px solid #000;padding-bottom:12px">
+
+  <!-- GST (left column) -->
+  <div style="display:table-cell;vertical-align:top;width:220px;padding-right:12px;text-align:left;font-size:12px;line-height:1.4">
+    <div><strong>GSTIN:</strong></div>
+    <div>10CMOPK8720K1ZV</div>
+    <div><strong>A/C:</strong> 32606206871</div>
+    <div><strong>IFSC:</strong> SBIN0010769</div>
+    <div><strong>B Name:</strong> SUDHIR KUMAR</div>
   </div>
 
-  <!-- CENTER BRAND -->
-  <div style="text-align:center">
+  <!-- CENTER BRAND (center column) -->
+  <div style="display:table-cell;vertical-align:top;text-align:center;padding:0 6px">
     <% app_name = "Rajesh Alankar Mandir" %>
-    <div style="font-size:28px;font-weight:900;color:#b30000;letter-spacing:1.2px">
-      <%= app_name %>
-    </div>
-    <div style="font-size:14px;font-weight:700;color:#003f8f;margin-top:2px">
-      Sadar Bazar, Jagdishpur, Bhojpur
-    </div>
-    <div style="font-size:12px;margin-top:3px">
-      Phone: +91-98358-07332 | Email: sudhirkumar6355@gmail.com
-    </div>
+    <div style="font-size:28px;font-weight:900;color:#b30000;letter-spacing:1.2px;line-height:1;margin:0"><%= app_name %></div>
+    <div style="font-size:14px;font-weight:700;color:#003f8f;line-height:1;margin-top:2px">Sadar Bazar, Jagdishpur, Bhojpur</div>
+    <div style="font-size:12px;line-height:1;margin-top:3px">Phone: +91-98358-07332 | Email: sudhirkumar6355@gmail.com</div>
   </div>
 
-  <!-- QR + CERT -->
-  <div style="text-align:right;font-size:12px">
+  <!-- QR + CERT (right column) -->
+  <div style="display:table-cell;vertical-align:top;width:160px;padding-left:12px;text-align:right;font-size:12px">
     <% begin %>
       <%# Generate a short-lived signed URL that serves the invoice PDF without requiring login %>
       <% begin %>
@@ -122,16 +67,14 @@
         <% qr_text = request.original_url rescue order_url(@order) %>
       <% end %>
       <% q = RQRCode::QRCode.new(qr_text) %>
-      <div style="display:inline-block;padding:2px;border:1px solid #000;margin-bottom:6px;width:74px;height:74px;overflow:hidden">
+      <div style="display:inline-block;padding:2px;border:1px solid #000;margin-bottom:6px;width:74px;height:74px;overflow:hidden;vertical-align:top">
         <%= raw q.as_svg(module_size: 1.1, standalone: true) %>
       </div>
     <% rescue %>
     <% end %>
-    <div style="line-height:1.4">
-      BIS Certified<br>
-      100% Hallmarked
-    </div>
+    <div style="line-height:1.2;margin-top:4px;display:inline-block;text-align:right"><div>BIS Certified</div><div>100% Hallmarked</div></div>
   </div>
+
 </div>
 
 <!-- TITLE -->
@@ -140,25 +83,30 @@
 </div>
 
 <!-- BILL + INVOICE INFO -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px;font-size:12.5px">
+<div style="display:table;width:100%;table-layout:fixed;gap:14px;margin-bottom:12px;font-size:12.5px">
 
-  <div style="line-height:1.7">
-    <strong>Bill To:</strong><br>
-    <% if @order.customer.present? %>
-      <strong><%= [@order.customer.first_name, @order.customer.last_name].join(' ') %></strong><br>
-      <%= @order.customer.address %><br>
-      Phone: <%= @order.customer.phone %>
-    <% else %>
-      Walk-in Customer
-    <% end %>
+  <div style="display:table-cell;vertical-align:top;padding-right:12px;line-height:1.7">
+    <strong>Bill To:</strong>
+    <div style="margin-top:4px">
+      <% if @order.customer.present? %>
+        <strong><%= [@order.customer.first_name, @order.customer.last_name].join(' ') %></strong><br>
+        <%= @order.customer.address %><br>
+        Phone: <%= @order.customer.phone %>
+      <% else %>
+        Walk-in Customer
+      <% end %>
+    </div>
   </div>
 
-  <div style="line-height:1.7;text-align:right">
-    <strong>Invoice No:</strong> <%= @order.invoice_number %><br>
-    <strong>Date:</strong> <%= (@order.sale_date || Date.today).strftime('%d %b %Y') %><br>
-    <strong>Order #:</strong> <%= @order.id %><br>
-    <strong>Status:</strong> <%= @order.status.capitalize %>
+  <div style="display:table-cell;vertical-align:top;padding-left:12px;line-height:1.7;text-align:right">
+    <div style="margin-top:0">
+      <strong>Invoice No:</strong> <%= @order.invoice_number %><br>
+      <strong>Date:</strong> <%= (@order.sale_date || Date.today).strftime('%d %b %Y') %><br>
+      <strong>Order #:</strong> <%= @order.id %><br>
+      <strong>Status:</strong> <%= @order.status.capitalize %>
+    </div>
   </div>
+
 </div>
 
 <!-- ITEMS TABLE -->
@@ -170,12 +118,12 @@
   <th style="border:1px solid #000;width:70px;text-align:center;color:#fff">HUID</th>
   <th style="border:1px solid #000;width:60px;text-align:center;color:#fff">HSN</th>
   <th style="border:1px solid #000;width:45px;text-align:center;color:#fff">Qty</th>
-  <th style="border:1px solid #000;width:55px;text-align:center;color:#fff;text-align:center">Gross wt(g)</th>
-  <th style="border:1px solid #000;width:50px;text-align:center;color:#fff;text-align:center">Net wt(g)</th>
-  <th style="border:1px solid #000;width:90px;text-align:right;color:#fff;padding-right:6px;text-align:center">Rate</th>
+  <th style="border:1px solid #000;width:45px;text-align:center;color:#fff">Gross wt</th>
+  <th style="border:1px solid #000;width:45px;text-align:center;color:#fff">Net wt</th>
+  <th style="border:1px solid #000;width:90px;text-align:right;color:#fff;padding-right:6px">Rate</th>
   <th style="border:1px solid #000;width:90px;text-align:right;color:#fff;padding-right:6px">Making (%)</th>
-  <th style="border:1px solid #000;width:90px;text-align:right;color:#fff;padding-right:6px;text-align:center">Addl</th>
-  <th style="border:1px solid #000;width:95px;text-align:right;color:#fff;padding-right:6px;text-align:center">Total</th>
+  <th style="border:1px solid #000;width:90px;text-align:right;color:#fff;padding-right:6px">Addl</th>
+  <th style="border:1px solid #000;width:95px;text-align:right;color:#fff;padding-right:6px">Total</th>
 </tr>
 </thead>
 
@@ -183,7 +131,6 @@
 <% subtotal = 0 %>
 
 <% @order.line_items.each_with_index do |li, i| %>
-  <%# compute per-gram rate: prefer stored line `rate`, else model per_gram_price or item's effective per-gram price, else fallback to price_cents/100.0 %>
   <% per_gram = if li.respond_to?(:per_gram_price) && li.per_gram_price.to_f > 0
                   li.per_gram_price.to_f
                 elsif li.jewelry_item && li.jewelry_item.respond_to?(:effective_price_per_gram)
@@ -197,9 +144,9 @@
   <% net_w = li.net_weight.to_f %>
   <% add_per_item = li.respond_to?(:additional_charge) ? li.additional_charge.to_f : 0.0 %>
   <% line = (display_rate * net_w * qty) + (li.making_charge.to_f || 0.0) + (add_per_item * qty) %>
+  <% subtotal += line %>
   <% base_material = (display_rate.to_f * net_w.to_f * qty.to_i) %>
   <% making_pct = base_material > 0 ? ((li.making_charge.to_f / base_material) * 100.0) : 0.0 %>
-  <% subtotal += line %>
 <tr>
   <td style="border:1px solid #000;text-align:center"><%= i+1 %></td>
   <td style="border:1px solid #000;padding-left:6px"><strong><%= li.jewelry_item&.name %></strong></td>
@@ -214,7 +161,6 @@
   <td style="border:1px solid #000;text-align:center"><%= li.quantity %></td>
   <td style="border:1px solid #000;text-align:center"><%= '%.2f' % li.gross_weight.to_f %></td>
   <td style="border:1px solid #000;text-align:center"><%= '%.2f' % li.net_weight.to_f %></td>
-  <%# show rate as per-gram price (prefer stored rate then per_gram) %>
   <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % display_rate %></td>
   <td style="border:1px solid #000;text-align:right;padding-right:6px"><%= number_with_precision(making_pct, precision: 2) %> %</td>
   <td style="border:1px solid #000;text-align:right;padding-right:6px">₹<%= '%.2f' % add_per_item %></td>
@@ -225,7 +171,6 @@
 </table>
 
 <!-- Paid via / payment method (styled) -->
-<%# Precompute totals here so we can render amount-in-words next to the payment info %>
 <% gross_total = subtotal %>
 <% taxable_amount = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
 <% cgst_rate = 1.5; igst_rate = 1.5 %>
@@ -283,10 +228,8 @@
 </div>
 
 <!-- ================= SUMMARY ================= -->
-<%# Precompute totals so we can show paid/remaining on the left without changing layout %>
 <% gross_total = subtotal %>
 <% taxable_amount = gross_total - (@order.discount.to_f || 0.0) + (@order.charges.to_f || 0.0) %>
-<%# Always compute CGST/SGST from the taxable amount here to match the order show page calculations %>
 <% cgst_rate = 1.5 %>
 <% igst_rate = 1.5 %>
 <% cgst_amt = taxable_amount * (cgst_rate / 100.0) %>
@@ -301,7 +244,6 @@
 
 <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-top:16px;font-size:12.5px">
 
-  <!-- Left: show Paid / Remaining (left aligned) -->
   <div style="font-size:13px;line-height:1.4;margin-top:12px">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div><strong>Total Paid (जमा राशि)</strong></div>
@@ -313,7 +255,6 @@
     </div>
   </div>
 
-  <!-- Amount Summary -->
   <div>
     <table style="width:100%;border-collapse:collapse">
       <tr>
@@ -360,7 +301,6 @@
 </div>
 
 
-
 <!-- FOOTER: signatures + governing law (anchored to bottom of invoice) -->
   <div style="margin-top:auto;padding-top:30px;padding-bottom:18px;border-top:1px solid #e6edf5;font-size:12px;color:#111827;line-height:1.6">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
@@ -376,13 +316,8 @@
       </div>
 
       <div style="font-size:11px;color:#4b5563;line-height:1.6;margin-top:12px">
-        <!-- DISCLAIMER: brief note about breakage -->
         <div style="margin-top:12px;font-size:12px;color:#6b7280;line-height:1.4">
-          <strong>Note:</strong>
-          <ol style="margin:6px 0 0 18px;padding:0">
-            <li>No guarantee is provided against breakage. Please handle items with care.</li>
-            <li>The deal will be finalized only after 75% of the money has been deposited</li>
-          </ol>
+          <strong>Note:</strong> No guarantee is provided against breakage. Please handle items with care.
         </div>
         <strong style="display:block;margin-top:10px">Governing Law & Jurisdiction:</strong>
         This invoice shall be governed by and construed in accordance with the laws of India. Any dispute, claim or proceeding arising out of or in connection with this invoice shall be subject to the exclusive jurisdiction of the courts at Jagdishpur, Bihar, India.
